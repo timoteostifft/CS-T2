@@ -1,5 +1,7 @@
 # Recomendações API
 
+[![CI](https://github.com/timoteostifft/CS-T2/actions/workflows/ci.yml/badge.svg)](https://github.com/timoteostifft/CS-T2/actions/workflows/ci.yml)
+
 API para busca de lugares e envio de avaliações e sugestões de atividades pelos usuários.
 
 Construída com [FastAPI](https://fastapi.tiangolo.com/) seguindo uma **Arquitetura Hexagonal** (Ports & Adapters): as regras de negócio vivem em `domain/`, isoladas dos detalhes de infraestrutura (HTTP, banco de dados) através de interfaces (`ports/`) implementadas por `adapters/` intercambiáveis.
