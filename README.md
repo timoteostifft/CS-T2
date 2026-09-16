@@ -53,7 +53,17 @@ uv run pytest -v
 Os testes são organizados por camada:
 
 - `tests/domain/` — entidades testadas isoladamente, sem framework ou infraestrutura envolvida.
-- `tests/application/` — use cases testados com um repositório fake, sem precisar de banco de dados ou servidor HTTP.
+- `tests/application/` — use cases testados com um repositório mock, sem precisar de banco de dados ou servidor HTTP.
+- `tests/adapters/rest/` — endpoints testados via `TestClient`, com `dependency_overrides` para injetar mocks.
+
+## Lint e formatação
+
+```bash
+uv run ruff check .      # lint
+uv run ruff format .     # formata o código
+```
+
+Configurado em `[tool.ruff]` no `pyproject.toml` (line length 100, regras de pyflakes/pycodestyle/isort/pyupgrade/bugbear).
 
 ## Arquitetura
 

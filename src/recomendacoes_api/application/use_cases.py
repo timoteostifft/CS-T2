@@ -1,5 +1,5 @@
 from recomendacoes_api.domain.entities import Place
-from recomendacoes_api.domain.ports import PlaceRepository
+from recomendacoes_api.ports.repositories import PlaceRepository
 
 
 class ListPlacesUseCase:
