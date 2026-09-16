@@ -115,4 +115,3 @@ src/recomendacoes_api/
     ├── rest/                     # Driving adapter: controllers HTTP, schemas, exception handlers
     └── database/                  # Driven adapter: implementações de repositório
 ```
-
