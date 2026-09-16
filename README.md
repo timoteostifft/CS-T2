@@ -2,7 +2,7 @@
 
 API para busca de lugares e envio de avaliações e sugestões de atividades pelos usuários.
 
-Construída com [FastAPI](https://fastapi.tiangolo.com/) seguindo uma **Arquitetura Hexagonal** (Ports & Adapters): as regras de negócio vivem em `domain/`, isoladas dos detalhes de infraestrutura (HTTP, banco de dados) através de interfaces (`ports`) implementadas por `adapters` intercambiáveis.
+Construída com [FastAPI](https://fastapi.tiangolo.com/) seguindo uma **Arquitetura Hexagonal** (Ports & Adapters): as regras de negócio vivem em `domain/`, isoladas dos detalhes de infraestrutura (HTTP, banco de dados) através de interfaces (`ports/`) implementadas por `adapters/` intercambiáveis.
 
 ## Requisitos
 
@@ -57,7 +57,7 @@ Os testes são organizados por camada:
 
 ## Arquitetura
 
-Este projeto segue a **Arquitetura Hexagonal** (também conhecida como Ports & Adapters). A ideia central: as regras de negócio vivem isoladas em um **domínio**, sem conhecimento de frameworks, bancos de dados ou HTTP — tudo que é externo se conecta a ele através de interfaces explícitas (**ports**), implementadas por **adapters** intercambiáveis.
+Este projeto segue a **Arquitetura Hexagonal** (também conhecida como Ports & Adapters). A ideia central: as regras de negócio vivem isoladas em um **domínio**, sem conhecimento de frameworks, bancos de dados ou HTTP — tudo que é externo se conecta a ele através de interfaces explícitas (**ports**), implementadas por **adapters** intercambiáveis. As ports ficam em um pacote próprio, `ports/`, separado do `domain/`, para deixar visualmente clara a fronteira entre "o que o domínio é" (entities, exceptions) e "o que o domínio exige do mundo externo" (contratos).
 
 ```
                     ┌──────────────────────┐
@@ -66,36 +66,40 @@ Este projeto segue a **Arquitetura Hexagonal** (também conhecida como Ports & A
                     └───────────┬──────────┘
                                 │ implementa
                                 ▼
-┌──────────────────┐        ┌──────────────────┐
-│ Driving Adapter  │──usa──►│     Domínio      │
-│ (adapters/rest)  │        │ entities + ports │
-└──────────────────┘        └──────────────────┘
-        ▲                        ▲
+┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
+│ Driving Adapter  │──usa──►│     ports/       │◄──usa──│     Domínio      │
+│ (adapters/rest)  │        │  (contratos)      │        │  entities +      │
+└──────────────────┘        └──────────────────┘        │  exceptions      │
+        ▲                                                └──────────────────┘
+        │                        ▲
         │                        │ orquestra
         └──── application/ ──────┘
 ```
 
-**Regra de dependência:** as dependências sempre apontam para dentro. `domain/` nunca importa nada de `application/` ou `adapters/`. `application/` depende só de `domain/`. `adapters/` dependem dos dois, mas nem `domain/` nem `application/` sabem que esses adapters existem.
+**Regra de dependência:** as dependências sempre apontam para dentro. `domain/` nunca importa nada de `ports/`, `application/` ou `adapters/`. `ports/` depende só de `domain/` (para tipar os métodos com as entidades). `application/` depende de `domain/` e `ports/`. `adapters/` dependem de todos os anteriores, mas nenhum deles sabe que os adapters existem.
 
-| Camada                     | Responsabilidade                                                                                                                                                     |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `domain/entities.py`       | Objetos de negócio centrais e seus invariantes (ex: `Place`). Python puro, sem imports de framework.                                                                 |
-| `domain/ports.py`          | Interfaces (`Protocol`) que o domínio exige do mundo externo — ex: `PlaceRepository`. Definidas pelo domínio, implementadas em outro lugar.                          |
-| `application/use_cases.py` | Orquestra entidades e ports para cumprir um caso de uso específico (ex: `ListPlacesUseCase`). Sem regra de negócio própria, sem código de framework.                 |
-| `adapters/rest/`           | **Driving adapter** — traduz requisições HTTP em chamadas de use case, e objetos de domínio em respostas de API (`controllers.py`, `schemas.py`, `dependencies.py`). |
-| `adapters/database/`       | **Driven adapter** — implementa as ports com um mecanismo concreto de armazenamento (atualmente em memória).                                                         |
+| Camada                          | Responsabilidade                                                                                                                                                     |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain/entities.py`             | Objetos de negócio centrais e seus invariantes (ex: `Place`). Python puro, sem imports de framework.                                                                 |
+| `domain/exceptions.py`           | Exceções de negócio (ex: `InvalidPlaceError`), uma por tipo de erro, levantadas pelas entidades ou pelos use cases.                                                  |
+| `ports/repositories.py`          | Interfaces (`Protocol`) que o domínio exige do mundo externo — ex: `PlaceRepository`. Definidas para a aplicação, implementadas nos adapters.                        |
+| `application/use_cases.py`       | Orquestra entidades e ports para cumprir um caso de uso específico (ex: `ListPlacesUseCase`). Sem regra de negócio própria, sem código de framework.                 |
+| `adapters/rest/`                 | **Driving adapter** — traduz requisições HTTP em chamadas de use case, objetos de domínio em respostas de API, e exceções de domínio em respostas HTTP de erro.      |
+| `adapters/database/`             | **Driven adapter** — implementa as ports com um mecanismo concreto de armazenamento (atualmente em memória).                                                         |
 
 ## Estrutura do projeto
 
 ```
 src/recomendacoes_api/
-├── app.py                    # Entrypoint do FastAPI
+├── app.py                       # Entrypoint do FastAPI
 ├── domain/
-│   ├── entities.py           # Entidades de negócio (ex: Place)
-│   └── ports.py               # Interfaces que o domínio exige da infraestrutura
+│   ├── entities.py              # Entidades de negócio (ex: Place)
+│   └── exceptions.py             # Exceções de negócio (ex: InvalidPlaceError)
+├── ports/
+│   └── repositories.py           # Interfaces que a aplicação exige da infraestrutura
 ├── application/
-│   └── use_cases.py           # Orquestra entidades de domínio para um caso de uso específico
+│   └── use_cases.py              # Orquestra entidades de domínio para um caso de uso específico
 └── adapters/
-    ├── rest/                  # Driving adapter: controllers HTTP, schemas de request/response
-    └── database/               # Driven adapter: implementações de repositório
+    ├── rest/                     # Driving adapter: controllers HTTP, schemas, exception handlers
+    └── database/                  # Driven adapter: implementações de repositório
 ```
