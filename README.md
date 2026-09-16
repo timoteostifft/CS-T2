@@ -8,45 +8,57 @@ Construída com [FastAPI](https://fastapi.tiangolo.com/) seguindo uma **Arquitet
 
 ## Requisitos
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) — gerenciador de dependências e projeto
+- [Docker](https://www.docker.com/) e Docker Compose — forma recomendada de rodar (API + Postgres já configurados)
+- Ou, para rodar localmente sem Docker: Python 3.12+, [uv](https://docs.astral.sh/uv/), e um Postgres acessível
 
-Instalar o `uv` (macOS/Linux):
+Instalar o `uv` (macOS/Linux), se for rodar sem Docker:
 
 ```bash
 brew install uv
 ```
 
-## Setup
+## Rodando com Docker (recomendado)
 
-Clone o repositório e instale as dependências:
+```bash
+docker compose up --build
+```
+
+Isso sobe dois containers: a API (`api`, porta `8000`) e um Postgres padrão (`db`, porta `5432`, usuário/senha/banco `postgres`/`postgres`/`recomendacoes`). Na primeira inicialização, a API cria a tabela `places` automaticamente (sem dados de exemplo — a tabela sobe vazia).
+
+```bash
+curl http://localhost:8000/places
+```
+
+Pra derrubar tudo (incluindo o volume do banco):
+
+```bash
+docker compose down -v
+```
+
+## Rodando localmente sem Docker
+
+Requer um Postgres acessível e um `.env` na raiz do projeto — a configuração **sempre** vem do `.env` (via `pydantic-settings`), nunca de um valor padrão no código. Sem ele, a aplicação (e os testes) falham já na importação, com um erro claro do Pydantic:
+
+```bash
+cp .env.example .env
+# edite .env se sua string de conexão for diferente do padrão
+```
 
 ```bash
 uv sync
-```
-
-Isso cria um `.venv` local e instala todas as dependências travadas em `uv.lock` — sem precisar criar venv ou rodar `pip install` manualmente.
-
-## Rodando a API
-
-```bash
 uv run fastapi dev src/recomendacoes_api/app.py
 ```
 
-O servidor sobe em `http://127.0.0.1:8000` com hot-reload habilitado.
+Isso cria um `.venv` local e instala todas as dependências travadas em `uv.lock`. O servidor sobe em `http://127.0.0.1:8000` com hot-reload habilitado.
 
 Documentação interativa:
 
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - ReDoc: `http://127.0.0.1:8000/redoc`
 
-### Exemplo de requisição
-
-```bash
-curl http://127.0.0.1:8000/places
-```
-
 ## Rodando os testes
+
+Requer um `.env` presente (`cp .env.example .env`), mesmo que os testes não toquem um banco real — `settings.py` é importado na cadeia de módulos e falha sem ele.
 
 ```bash
 uv run pytest -v
@@ -97,13 +109,15 @@ Este projeto segue a **Arquitetura Hexagonal** (também conhecida como Ports & A
 | `ports/repositories.py`          | Interfaces (`Protocol`) que o domínio exige do mundo externo — ex: `PlaceRepository`. Definidas para a aplicação, implementadas nos adapters.                        |
 | `application/use_cases.py`       | Orquestra entidades e ports para cumprir um caso de uso específico (ex: `ListPlacesUseCase`). Sem regra de negócio própria, sem código de framework.                 |
 | `adapters/rest/`                 | **Driving adapter** — traduz requisições HTTP em chamadas de use case, objetos de domínio em respostas de API, e exceções de domínio em respostas HTTP de erro.      |
-| `adapters/database/`             | **Driven adapter** — implementa as ports com um mecanismo concreto de armazenamento (atualmente em memória).                                                         |
+| `adapters/database/`             | **Driven adapter** — implementa as ports com um mecanismo concreto de armazenamento (Postgres via SQLAlchemy).                                                        |
+| `settings.py`                    | Configuração via variáveis de ambiente (`pydantic-settings`), ex: `DATABASE_URL`.                                                                                     |
 
 ## Estrutura do projeto
 
 ```
 src/recomendacoes_api/
-├── app.py                       # Entrypoint do FastAPI
+├── app.py                       # Entrypoint do FastAPI (registra rotas, exception handlers, lifespan)
+├── settings.py                   # Configuração via variáveis de ambiente (DATABASE_URL)
 ├── domain/
 │   ├── entities.py              # Entidades de negócio (ex: Place)
 │   └── exceptions.py             # Exceções de negócio (ex: InvalidPlaceError)
@@ -113,5 +127,11 @@ src/recomendacoes_api/
 │   └── use_cases.py              # Orquestra entidades de domínio para um caso de uso específico
 └── adapters/
     ├── rest/                     # Driving adapter: controllers HTTP, schemas, exception handlers
-    └── database/                  # Driven adapter: implementações de repositório
+    └── database/                  # Driven adapter: sessão SQLAlchemy + PostgresPlaceRepository
 ```
+
+## Docker
+
+- `Dockerfile` — build multi-stage usando `uv` (instala dependências, depois copia o código).
+- `docker-compose.yml` — orquestra a API e um Postgres padrão (`postgres:16-alpine`), com healthcheck garantindo que a API só sobe depois do banco estar pronto.
+- `.dockerignore` — exclui `.venv`, `tests/`, caches e arquivos de editor da imagem.
