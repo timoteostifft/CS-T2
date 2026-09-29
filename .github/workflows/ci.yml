@@ -45,7 +45,8 @@ jobs:
         run: cp .env.example .env
 
       - name: Generate OpenAPI contract
-        run: uv run python scripts/export_openapi.py openapi.json
+        run: |
+          uv run python -c "import json; from recomendacoes_api.app import app; open('openapi.json', 'w').write(json.dumps(app.openapi(), indent=2))"
 
       - name: Validate contract with Spectral
         uses: stoplightio/spectral-action@v0.8.10
@@ -95,7 +96,7 @@ jobs:
           name: coverage-report
 
       - name: SonarQube scan
-        uses: SonarSource/sonarqube-scan-action@v5
+        uses: SonarSource/sonarqube-scan-action@v8.2.2
         with:
           args: -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300
         env:
