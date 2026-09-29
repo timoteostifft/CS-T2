@@ -15,6 +15,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Places & Activity Recommendations API", lifespan=lifespan)
-app.include_router(places_router)
+app = FastAPI(
+    title="Recomendações API - ViajaJunto",
+    description=(
+        "API em Arquitetura Hexagonal (Python/FastAPI) "
+        "para gestão e ranqueamento dinâmico de locais (Places)."
+    ),
+    version="1.1.0",
+    lifespan=lifespan,
+)
+app.include_router(places_router, prefix="/api/v1")
 register_exception_handlers(app)
