@@ -7,6 +7,53 @@ on:
     branches: [main, develop]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Create .env
+        run: cp .env.example .env
+
+      - name: Generate OpenAPI contract
+        run: |
+          uv run python -c "import json; from recomendacoes_api.app import app; open('openapi.json', 'w').write(json.dumps(app.openapi(), indent=2))"
+
+      - name: Validate contract with Spectral
+        uses: stoplightio/spectral-action@v0.8.10
+        with:
+          file_glob: openapi.json
+          spectral_ruleset: .spectral.yaml
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -24,11 +71,51 @@ jobs:
       - name: Create .env
         run: cp .env.example .env
 
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Check formatting
-        run: uv run ruff format --check .
-
       - name: Run tests
-        run: uv run pytest -v
+        run: uv run pytest -v --cov=recomendacoes_api --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  sonarqube:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+
+      - name: SonarQube scan
+        uses: SonarSource/sonarqube-scan-action@v8.2.2
+        with:
+          args: -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t recomendacoes-api:${{ github.sha }} .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: recomendacoes-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

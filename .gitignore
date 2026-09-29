@@ -21,3 +21,10 @@ wheels/
 
 # Environment
 .env
+
+# Coverage
+coverage.xml
+.coverage
+
+# Generated OpenAPI contract
+openapi.json
