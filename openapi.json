@@ -1,0 +1,344 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Recomendações API - ViajaJunto",
+    "description": "API em Arquitetura Hexagonal (Python/FastAPI) para gestão e ranqueamento dinâmico de locais (Places). Utiliza uma biblioteca genérica interna para aplicar pesos aos atributos numéricos dos locais.",
+    "version": "1.1.0",
+    "contact": {
+      "name": "Equipa ViajaJunto"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000/api/v1",
+      "description": "Servidor de Desenvolvimento Local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Places",
+      "description": "Operações de gestão (CRUD) dos locais na base de dados."
+    },
+    {
+      "name": "Motor de Recomendações",
+      "description": "Operações que utilizam a biblioteca de ranqueamento dinâmico."
+    }
+  ],
+  "paths": {
+    "/places": {
+      "get": {
+        "tags": ["Places"],
+        "summary": "Listar todos os locais",
+        "description": "Retorna uma lista paginada de todos os locais disponíveis na base de dados.",
+        "operationId": "listPlaces",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Número máximo de locais a retornar.",
+            "required": false,
+            "schema": { "type": "integer", "default": 10, "minimum": 1 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Número de locais a ignorar na paginação.",
+            "required": false,
+            "schema": { "type": "integer", "default": 0, "minimum": 0 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de locais retornada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer", "example": 42 },
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/Place" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" }
+        }
+      },
+      "post": {
+        "tags": ["Places"],
+        "summary": "Criar um novo local",
+        "description": "Regista um novo local na base de dados para futuras recomendações.",
+        "operationId": "createPlace",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PlaceCreate" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Local criado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Place" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestError" },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" }
+        }
+      }
+    },
+    "/places/{id}": {
+      "get": {
+        "tags": ["Places"],
+        "summary": "Obter detalhes de um local",
+        "description": "Retorna os detalhes de um local específico através do seu ID.",
+        "operationId": "getPlaceById",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhes do local.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Place" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" },
+          "404": { "$ref": "#/components/responses/NotFoundError" }
+        }
+      },
+      "put": {
+        "tags": ["Places"],
+        "summary": "Atualizar um local",
+        "description": "Atualiza os dados de um local existente.",
+        "operationId": "updatePlace",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PlaceUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Local atualizado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Place" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestError" },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" },
+          "404": { "$ref": "#/components/responses/NotFoundError" }
+        }
+      },
+      "delete": {
+        "tags": ["Places"],
+        "summary": "Eliminar um local",
+        "description": "Remove um local da base de dados.",
+        "operationId": "deletePlace",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Local eliminado com sucesso." },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" },
+          "404": { "$ref": "#/components/responses/NotFoundError" }
+        }
+      }
+    },
+    "/places/rank": {
+      "post": {
+        "tags": ["Motor de Recomendações"],
+        "summary": "Ranqueamento dinâmico de locais",
+        "description": "Aplica pesos dinâmicos aos atributos numéricos dos locais existentes. Utiliza a biblioteca genérica de ranqueamento para calcular um score_final para cada Place e devolve a lista ordenada.",
+        "operationId": "rankPlaces",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Número de recomendações a retornar no topo do ranking.",
+            "required": false,
+            "schema": { "type": "integer", "default": 5 }
+          }
+        ],
+        "requestBody": {
+          "description": "Pesos numéricos que serão processados pela biblioteca genérica.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RankWeightsPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Locais ranqueados com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PlaceRanked" }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequestError" },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT de autorização."
+      }
+    },
+    "schemas": {
+      "Place": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "a3b8c9d1-1234-5678-abcd-ef1234567890" },
+          "name": { "type": "string", "example": "Parque Nacional da Peneda-Gerês" },
+          "category": { "type": "string", "example": "Natureza" },
+          "rating": { "type": "number", "format": "float", "example": 4.8 },
+          "cost": { "type": "number", "format": "float", "example": 2.5 },
+          "popularity": { "type": "number", "format": "float", "example": 9.0 }
+        }
+      },
+      "PlaceCreate": {
+        "type": "object",
+        "required": ["name", "category", "rating", "cost", "popularity"],
+        "properties": {
+          "name": { "type": "string", "example": "Torre de Belém" },
+          "category": { "type": "string", "example": "Monumento" },
+          "rating": { "type": "number", "format": "float", "example": 4.7 },
+          "cost": { "type": "number", "format": "float", "example": 3.0 },
+          "popularity": { "type": "number", "format": "float", "example": 9.5 }
+        }
+      },
+      "PlaceUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "Torre de Belém (Atualizado)" },
+          "category": { "type": "string", "example": "Património Mundial" },
+          "rating": { "type": "number", "format": "float", "example": 4.9 }
+        }
+      },
+      "PlaceRanked": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Place" },
+          {
+            "type": "object",
+            "properties": {
+              "score_final": {
+                "type": "number",
+                "format": "float",
+                "description": "Pontuação calculada pela biblioteca genérica.",
+                "example": 8.45
+              }
+            }
+          }
+        ]
+      },
+      "RankWeightsPayload": {
+        "type": "object",
+        "required": ["weights"],
+        "properties": {
+          "weights": {
+            "type": "object",
+            "description": "Dicionário de pesos para os atributos do Place.",
+            "additionalProperties": { "type": "number" },
+            "example": {
+              "rating": 0.6,
+              "cost": -0.3,
+              "popularity": 0.1
+            }
+          }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "integer" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "BadRequestError": {
+        "description": "Erro de validação nos dados fornecidos.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Erro" },
+            "example": {
+              "code": 400,
+              "message": "Parâmetros de entrada inválidos ou peso atribuído a um campo inexistente."
+            }
+          }
+        }
+      },
+      "UnauthorizedError": {
+        "description": "Autenticação falhou ou token ausente.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Erro" },
+            "example": {
+              "code": 401,
+              "message": "Token JWT ausente, inválido ou expirado."
+            }
+          }
+        }
+      },
+      "NotFoundError": {
+        "description": "O recurso (Place) não foi encontrado.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Erro" },
+            "example": {
+              "code": 404,
+              "message": "O recurso solicitado não foi encontrado na base de dados."
+            }
+          }
+        }
+      }
+    }
+  }
+}
