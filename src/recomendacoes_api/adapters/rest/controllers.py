@@ -1,12 +1,19 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from recomendacoes_api.adapters.rest.dependencies import (
+    get_create_place_use_case,
     get_list_cities_use_case,
     get_list_places_use_case,
     get_list_states_use_case,
 )
-from recomendacoes_api.adapters.rest.schemas import CityResponse, PlaceResponse, StateResponse
+from recomendacoes_api.adapters.rest.schemas import (
+    CityResponse,
+    PlaceRequest,
+    PlaceResponse,
+    StateResponse,
+)
 from recomendacoes_api.application.use_cases import (
+    CreatePlaceUseCase,
     ListCitiesUseCase,
     ListPlacesUseCase,
     ListStatesUseCase,
@@ -22,7 +29,24 @@ def list_places(
     use_case: ListPlacesUseCase = Depends(get_list_places_use_case),
 ) -> list[PlaceResponse]:
     places = use_case.execute()
+
     return [PlaceResponse.from_entity(place) for place in places]
+
+
+@router.post("", response_model=PlaceResponse, status_code=status.HTTP_201_CREATED)
+def create_place(
+    request: PlaceRequest,
+    use_case: CreatePlaceUseCase = Depends(get_create_place_use_case),
+) -> PlaceResponse:
+    place = use_case.execute(
+        name=request.name,
+        category=request.category,
+        city_id=request.city_id,
+        rating=request.rating,
+        cost=request.cost,
+    )
+
+    return PlaceResponse.from_entity(place)
 
 
 @states_router.get("", response_model=list[StateResponse])

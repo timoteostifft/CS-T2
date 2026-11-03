@@ -10,3 +10,6 @@ class MockCityRepository:
             return self._cities
 
         return [city for city in self._cities if city.state_code == state_code]
+
+    def exists_by_id(self, city_id: int) -> bool:
+        return any(city.id == city_id for city in self._cities)

@@ -1,23 +1,35 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from recomendacoes_api.domain.entities import City, Place, State
+
+
+class PlaceRequest(BaseModel):
+    name: str
+    category: str
+    city_id: int
+    rating: float = Field(ge=0, le=5)
+    cost: float = Field(ge=0)
 
 
 class PlaceResponse(BaseModel):
     id: UUID
     name: str
-    city: str
     category: str
+    city_id: int
+    rating: float
+    cost: float
 
     @staticmethod
     def from_entity(place: Place) -> "PlaceResponse":
         return PlaceResponse(
             id=place.id,
             name=place.name,
-            city=place.city,
             category=place.category,
+            city_id=place.city_id,
+            rating=place.rating,
+            cost=place.cost,
         )
 
 
