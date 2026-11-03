@@ -29,10 +29,10 @@ def seed_locations(session_factory: sessionmaker[Session]) -> None:
     with session_factory() as session:
         if session.scalar(select(func.count()).select_from(StateModel)):
             return
-        
+
         states, cities = load_locations()
 
         session.add_all(StateModel(code=s.code, name=s.name) for s in states)
         session.add_all(CityModel(id=c.id, name=c.name, state_code=c.state_code) for c in cities)
-        
+
         session.commit()

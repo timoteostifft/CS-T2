@@ -19,5 +19,5 @@ class PostgresStateRepository:
     def list_all(self) -> list[State]:
         with self._session_factory() as session:
             rows = session.scalars(select(StateModel).order_by(StateModel.name)).all()
-            
+
             return [State(code=row.code, name=row.name) for row in rows]

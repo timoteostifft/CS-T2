@@ -25,5 +25,5 @@ class PostgresCityRepository:
 
         with self._session_factory() as session:
             rows = session.scalars(query).all()
-            
+
             return [City(id=row.id, name=row.name, state_code=row.state_code) for row in rows]

@@ -24,5 +24,5 @@ class ListCitiesUseCase:
 
     def execute(self, state_code: str | None = None) -> list[City]:
         code = state_code.upper() if state_code else None
-        
+
         return self._city_repository.list_all(code)
