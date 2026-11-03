@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
-from recomendacoes_api.domain.exceptions import InvalidPlaceError
+from recomendacoes_api.domain.exceptions import (
+    InvalidCityError,
+    InvalidPlaceError,
+    InvalidStateError,
+)
 
 
 @dataclass
@@ -22,3 +26,30 @@ class Place:
     @staticmethod
     def create(name: str, city: str, category: str) -> "Place":
         return Place(name=name, city=city, category=category)
+
+
+@dataclass(frozen=True)
+class State:
+    code: str
+    name: str
+
+    def __post_init__(self) -> None:
+        if len(self.code) != 2 or not self.code.isalpha() or not self.code.isupper():
+            raise InvalidStateError("State code must be two uppercase letters")
+        if not self.name.strip():
+            raise InvalidStateError("State name must not be empty")
+
+
+@dataclass(frozen=True)
+class City:
+    id: int
+    name: str
+    state_code: str
+
+    def __post_init__(self) -> None:
+        if self.id <= 0:
+            raise InvalidCityError("City id must be positive")
+        if not self.name.strip():
+            raise InvalidCityError("City name must not be empty")
+        if not self.state_code.strip():
+            raise InvalidCityError("City state code must not be empty")
