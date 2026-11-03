@@ -4,4 +4,4 @@ from sqlalchemy.orm import sessionmaker
 from recomendacoes_api.settings import settings
 
 engine = create_engine(settings.database_url)
-SessionLocal = sessionmaker(bind=engine)
+sessions = sessionmaker(bind=engine)

@@ -4,3 +4,11 @@ class DomainError(Exception):
 
 class InvalidPlaceError(DomainError):
     pass
+
+
+class InvalidStateError(DomainError):
+    pass
+
+
+class InvalidCityError(DomainError):
+    pass
