@@ -1,7 +1,10 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from recomendacoes_api.domain.exceptions import DomainError, InvalidPlaceError
+from recomendacoes_api.domain.exceptions import (
+    DomainError,
+    InvalidPlaceError,
+)
 
 
 async def invalid_place_error_handler(request: Request, exc: InvalidPlaceError) -> JSONResponse:
