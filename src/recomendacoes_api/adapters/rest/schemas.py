@@ -1,8 +1,29 @@
+from collections.abc import Callable
+from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from recomendacoes_api.domain.entities import City, Place, State
+from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
+
+
+class PaginationRequest(BaseModel):
+    limit: int = Field(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
+    offset: int = Field(0, ge=0)
+
+
+class CityListRequest(PaginationRequest):
+    state_code: str | None = None
+
+
+class PageResponse[T](BaseModel):
+    total: int
+    items: list[T]
+
+    @classmethod
+    def from_page[E](cls, page: Page[E], to_response: Callable[[E], T]) -> Self:
+        return cls(total=page.total, items=[to_response(item) for item in page.items])
 
 
 class PlaceRequest(BaseModel):

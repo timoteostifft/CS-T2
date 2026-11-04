@@ -7,7 +7,7 @@ from recomendacoes_api.domain.exceptions import DomainError, InvalidPlaceError, 
 
 def raising(error: Exception):
     class RaisingUseCase:
-        def execute(self):
+        def execute(self, *args, **kwargs):
             raise error
 
     return RaisingUseCase()
