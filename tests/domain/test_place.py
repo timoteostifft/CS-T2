@@ -27,7 +27,10 @@ def test_create_place():
 
 
 def test_create_place_generates_distinct_ids():
-    assert build_place().id != build_place().id
+    first = build_place()
+    second = build_place()
+
+    assert first.id != second.id
 
 
 @pytest.mark.parametrize("field", ["name", "category"])

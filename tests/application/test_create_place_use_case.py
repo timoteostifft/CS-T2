@@ -26,21 +26,19 @@ def test_create_place_saves_and_returns_the_place():
 
 def test_create_place_with_unknown_city_raises_and_saves_nothing():
     places = MockPlaceRepository()
+    use_case = build_use_case(places)
 
     with pytest.raises(InvalidPlaceError):
-        build_use_case(places).execute(
-            name="Praia do Rosa", category="beach", city_id=1, rating=4.5, cost=30.0
-        )
+        use_case.execute(name="Praia do Rosa", category="beach", city_id=1, rating=4.5, cost=30.0)
 
     assert places.count_all() == 0
 
 
 def test_create_place_with_invalid_data_raises_and_saves_nothing():
     places = MockPlaceRepository()
+    use_case = build_use_case(places)
 
     with pytest.raises(InvalidPlaceError):
-        build_use_case(places).execute(
-            name=" ", category="beach", city_id=CITY.id, rating=4.5, cost=30.0
-        )
+        use_case.execute(name=" ", category="beach", city_id=CITY.id, rating=4.5, cost=30.0)
 
     assert places.count_all() == 0

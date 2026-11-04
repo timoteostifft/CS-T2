@@ -24,7 +24,7 @@ states_router = APIRouter(prefix="/states", tags=["locations"])
 cities_router = APIRouter(prefix="/cities", tags=["locations"])
 
 
-@router.get("", response_model=list[PlaceResponse])
+@router.get("")
 def list_places(
     use_case: ListPlacesUseCase = Depends(get_list_places_use_case),
 ) -> list[PlaceResponse]:
@@ -33,7 +33,7 @@ def list_places(
     return [PlaceResponse.from_entity(place) for place in places]
 
 
-@router.post("", response_model=PlaceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 def create_place(
     request: PlaceRequest,
     use_case: CreatePlaceUseCase = Depends(get_create_place_use_case),
@@ -49,14 +49,14 @@ def create_place(
     return PlaceResponse.from_entity(place)
 
 
-@states_router.get("", response_model=list[StateResponse])
+@states_router.get("")
 def list_states(
     use_case: ListStatesUseCase = Depends(get_list_states_use_case),
 ) -> list[StateResponse]:
     return [StateResponse.from_entity(state) for state in use_case.execute()]
 
 
-@cities_router.get("", response_model=list[CityResponse])
+@cities_router.get("")
 def list_cities(
     state_code: str | None = None,
     use_case: ListCitiesUseCase = Depends(get_list_cities_use_case),

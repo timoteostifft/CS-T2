@@ -15,15 +15,15 @@ def error_response(status_code: int, error: str, message: str) -> JSONResponse:
     )
 
 
-async def invalid_place_error_handler(request: Request, exc: InvalidPlaceError) -> JSONResponse:
+def invalid_place_error_handler(request: Request, exc: InvalidPlaceError) -> JSONResponse:
     return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
 
 
-async def place_not_found_error_handler(request: Request, exc: PlaceNotFoundError) -> JSONResponse:
+def place_not_found_error_handler(request: Request, exc: PlaceNotFoundError) -> JSONResponse:
     return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
 
 
-async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
 
 
