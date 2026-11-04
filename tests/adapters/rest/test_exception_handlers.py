@@ -2,7 +2,12 @@ from fastapi.testclient import TestClient
 
 from recomendacoes_api.adapters.rest.dependencies import get_list_places_use_case
 from recomendacoes_api.app import app
-from recomendacoes_api.domain.exceptions import DomainError, InvalidPlaceError, PlaceNotFoundError
+from recomendacoes_api.domain.exceptions import (
+    DomainError,
+    InvalidPlaceError,
+    InvalidReviewError,
+    PlaceNotFoundError,
+)
 
 
 def raising(error: Exception):
@@ -31,6 +36,17 @@ def test_invalid_place_error_is_translated_to_400():
         "error": "bad_request",
         "code": 400,
         "message": "Place name must not be empty",
+    }
+
+
+def test_invalid_review_error_is_translated_to_400():
+    response = get_places_with(InvalidReviewError("Review device id must not be empty"))
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": "bad_request",
+        "code": 400,
+        "message": "Review device id must not be empty",
     }
 
 

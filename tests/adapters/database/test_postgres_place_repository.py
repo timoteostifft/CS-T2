@@ -5,9 +5,16 @@ from recomendacoes_api.domain.entities import Place
 
 
 def build_place(name: str = "Praia do Rosa", **overrides) -> Place:
-    data = {"category": "beach", "city_id": 4207304, "rating": 4.5, "cost": 30.0}
+    data = {
+        "category": "beach",
+        "city_id": 4207304,
+        "cost": 30.0,
+        "average_rating": 4.5,
+        "review_count": 2,
+        "archived": False,
+    }
 
-    return Place.create(name=name, **{**data, **overrides})
+    return Place(name=name, **{**data, **overrides})
 
 
 def test_save_then_find_by_id_returns_the_place(session_factory):
@@ -25,14 +32,51 @@ def test_find_by_id_returns_none_when_missing(session_factory):
     assert repository.find_by_id(uuid4()) is None
 
 
-def test_list_all_returns_places_ordered_by_name(session_factory):
+def test_list_all_returns_non_archived_places_ordered_by_name(session_factory):
     repository = PostgresPlaceRepository(session_factory)
     repository.save(build_place("Praia da Silveira"))
     repository.save(build_place("Farol de Santa Marta"))
+    repository.save(build_place("Archived Place", archived=True))
 
     names = [place.name for place in repository.list_all()]
 
     assert names == ["Farol de Santa Marta", "Praia da Silveira"]
+
+
+def test_list_all_filters_by_category_city_rating_and_cost(session_factory):
+    repository = PostgresPlaceRepository(session_factory)
+    repository.save(
+        build_place("Match", category="trail", city_id=10, average_rating=4.5, cost=20.0)
+    )
+    repository.save(
+        build_place("Wrong Category", category="beach", city_id=10, average_rating=4.5, cost=20.0)
+    )
+    repository.save(
+        build_place("Wrong City", category="trail", city_id=20, average_rating=4.5, cost=20.0)
+    )
+    repository.save(
+        build_place("Low Rating", category="trail", city_id=10, average_rating=3.0, cost=20.0)
+    )
+    repository.save(
+        build_place("High Cost", category="trail", city_id=10, average_rating=4.5, cost=50.0)
+    )
+
+    places = repository.list_all(category="trail", city_id=10, min_rating=4.0, max_cost=30.0)
+
+    assert [place.name for place in places] == ["Match"]
+
+
+def test_list_all_sorts_by_cost_ascending_and_rating_descending(session_factory):
+    repository = PostgresPlaceRepository(session_factory)
+    repository.save(build_place("Mid", cost=30.0, average_rating=3.5))
+    repository.save(build_place("Cheap", cost=10.0, average_rating=5.0))
+    repository.save(build_place("Expensive", cost=50.0, average_rating=4.5))
+
+    by_cost = [place.name for place in repository.list_all(sort="cost")]
+    by_rating = [place.name for place in repository.list_all(sort="rating")]
+
+    assert by_cost == ["Cheap", "Mid", "Expensive"]
+    assert by_rating == ["Cheap", "Expensive", "Mid"]
 
 
 def test_list_all_applies_limit_and_offset(session_factory):
@@ -46,15 +90,17 @@ def test_list_all_applies_limit_and_offset(session_factory):
     assert names == ["B", "C"]
 
 
-def test_count_all_returns_the_number_of_places(session_factory):
+def test_count_all_returns_the_number_of_matching_non_archived_places(session_factory):
     repository = PostgresPlaceRepository(session_factory)
 
     assert repository.count_all() == 0
 
-    repository.save(build_place("A"))
-    repository.save(build_place("B"))
+    repository.save(build_place("A", category="beach", city_id=1, average_rating=4.5, cost=20.0))
+    repository.save(build_place("B", category="trail", city_id=2, average_rating=3.0, cost=50.0))
+    repository.save(build_place("C", category="beach", archived=True))
 
     assert repository.count_all() == 2
+    assert repository.count_all(category="beach", city_id=1, min_rating=4.0, max_cost=30.0) == 1
 
 
 def test_update_changes_the_stored_place(session_factory):
@@ -62,13 +108,15 @@ def test_update_changes_the_stored_place(session_factory):
     place = build_place()
     repository.save(place)
 
-    place.rating = 3.0
+    place.average_rating = 3.0
+    place.review_count = 5
     place.cost = 10.0
     repository.update(place)
 
     stored = repository.find_by_id(place.id)
 
-    assert stored.rating == 3.0
+    assert stored.average_rating == 3.0
+    assert stored.review_count == 5
     assert stored.cost == 10.0
 
 
