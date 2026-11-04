@@ -1,4 +1,5 @@
 from recomendacoes_api.domain.entities import City, Place, State
+from recomendacoes_api.domain.exceptions import InvalidPlaceError
 from recomendacoes_api.ports.repositories import CityRepository, PlaceRepository, StateRepository
 
 
@@ -8,6 +9,24 @@ class ListPlacesUseCase:
 
     def execute(self) -> list[Place]:
         return self._place_repository.list_all()
+
+
+class CreatePlaceUseCase:
+    def __init__(self, place_repository: PlaceRepository, city_repository: CityRepository) -> None:
+        self._place_repository = place_repository
+        self._city_repository = city_repository
+
+    def execute(self, name: str, category: str, city_id: int, rating: float, cost: float) -> Place:
+        place = Place.create(
+            name=name, category=category, city_id=city_id, rating=rating, cost=cost
+        )
+
+        if not self._city_repository.exists_by_id(city_id):
+            raise InvalidPlaceError(f"City {city_id} does not exist")
+
+        self._place_repository.save(place)
+
+        return place
 
 
 class ListStatesUseCase:
