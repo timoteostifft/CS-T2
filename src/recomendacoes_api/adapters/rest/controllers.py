@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, status
 
 from recomendacoes_api.adapters.rest.dependencies import (
     get_create_place_use_case,
@@ -7,7 +9,10 @@ from recomendacoes_api.adapters.rest.dependencies import (
     get_list_states_use_case,
 )
 from recomendacoes_api.adapters.rest.schemas import (
+    CityListRequest,
     CityResponse,
+    PageResponse,
+    PaginationRequest,
     PlaceRequest,
     PlaceResponse,
     StateResponse,
@@ -26,11 +31,12 @@ cities_router = APIRouter(prefix="/cities", tags=["locations"])
 
 @router.get("")
 def list_places(
+    pagination: Annotated[PaginationRequest, Query()],
     use_case: ListPlacesUseCase = Depends(get_list_places_use_case),
-) -> list[PlaceResponse]:
-    places = use_case.execute()
+) -> PageResponse[PlaceResponse]:
+    page = use_case.execute(limit=pagination.limit, offset=pagination.offset)
 
-    return [PlaceResponse.from_entity(place) for place in places]
+    return PageResponse[PlaceResponse].from_page(page, PlaceResponse.from_entity)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -51,14 +57,21 @@ def create_place(
 
 @states_router.get("")
 def list_states(
+    pagination: Annotated[PaginationRequest, Query()],
     use_case: ListStatesUseCase = Depends(get_list_states_use_case),
-) -> list[StateResponse]:
-    return [StateResponse.from_entity(state) for state in use_case.execute()]
+) -> PageResponse[StateResponse]:
+    page = use_case.execute(limit=pagination.limit, offset=pagination.offset)
+
+    return PageResponse[StateResponse].from_page(page, StateResponse.from_entity)
 
 
 @cities_router.get("")
 def list_cities(
-    state_code: str | None = None,
+    filters: Annotated[CityListRequest, Query()],
     use_case: ListCitiesUseCase = Depends(get_list_cities_use_case),
-) -> list[CityResponse]:
-    return [CityResponse.from_entity(city) for city in use_case.execute(state_code)]
+) -> PageResponse[CityResponse]:
+    page = use_case.execute(
+        state_code=filters.state_code, limit=filters.limit, offset=filters.offset
+    )
+
+    return PageResponse[CityResponse].from_page(page, CityResponse.from_entity)

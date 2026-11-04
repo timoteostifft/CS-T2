@@ -46,3 +46,30 @@ def test_exists_by_id_tells_whether_the_city_exists(session_factory):
 
     assert repository.exists_by_id(4314902) is True
     assert repository.exists_by_id(1) is False
+
+
+def test_list_all_applies_limit_and_offset(session_factory):
+    repository = seed(session_factory)
+
+    names = [city.name for city in repository.list_all(limit=1, offset=1)]
+
+    assert names == ["Imbituba"]
+
+
+def test_list_all_applies_limit_and_offset_within_the_state_filter(session_factory):
+    repository = seed(session_factory)
+
+    names = [city.name for city in repository.list_all("SC", limit=1, offset=1)]
+
+    assert names == ["Imbituba"]
+
+
+def test_count_all_counts_every_city_without_filter(session_factory):
+    assert seed(session_factory).count_all() == 3
+
+
+def test_count_all_counts_only_cities_of_the_state(session_factory):
+    repository = seed(session_factory)
+
+    assert repository.count_all("SC") == 2
+    assert repository.count_all("XX") == 0
