@@ -27,3 +27,7 @@ class PostgresCityRepository:
             rows = session.scalars(query).all()
 
             return [City(id=row.id, name=row.name, state_code=row.state_code) for row in rows]
+
+    def exists_by_id(self, city_id: int) -> bool:
+        with self._session_factory() as session:
+            return session.get(CityModel, city_id) is not None

@@ -5,6 +5,7 @@ from recomendacoes_api.adapters.database.postgres_place_repository import Postgr
 from recomendacoes_api.adapters.database.postgres_state_repository import PostgresStateRepository
 from recomendacoes_api.adapters.database.session import sessions
 from recomendacoes_api.application.use_cases import (
+    CreatePlaceUseCase,
     ListCitiesUseCase,
     ListPlacesUseCase,
     ListStatesUseCase,
@@ -24,6 +25,10 @@ def get_state_repository() -> PostgresStateRepository:
 @lru_cache
 def get_city_repository() -> PostgresCityRepository:
     return PostgresCityRepository(sessions)
+
+
+def get_create_place_use_case() -> CreatePlaceUseCase:
+    return CreatePlaceUseCase(get_place_repository(), get_city_repository())
 
 
 def get_list_places_use_case() -> ListPlacesUseCase:

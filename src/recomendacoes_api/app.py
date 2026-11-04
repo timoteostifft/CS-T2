@@ -19,7 +19,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title="Places & Activity Recommendations API", lifespan=lifespan)
-app.include_router(places_router)
-app.include_router(states_router)
-app.include_router(cities_router)
+API_PREFIX = "/api/v1"
+
+app.include_router(places_router, prefix=API_PREFIX)
+app.include_router(states_router, prefix=API_PREFIX)
+app.include_router(cities_router, prefix=API_PREFIX)
+
 register_exception_handlers(app)

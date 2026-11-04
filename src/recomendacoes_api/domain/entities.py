@@ -7,25 +7,33 @@ from recomendacoes_api.domain.exceptions import (
     InvalidStateError,
 )
 
+MAX_RATING = 5
+
 
 @dataclass
 class Place:
     name: str
-    city: str
     category: str
+    city_id: int
+    rating: float
+    cost: float
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise InvalidPlaceError("Place name must not be empty")
-        if not self.city.strip():
-            raise InvalidPlaceError("Place city must not be empty")
         if not self.category.strip():
             raise InvalidPlaceError("Place category must not be empty")
+        if self.city_id <= 0:
+            raise InvalidPlaceError("Place city id must be positive")
+        if not 0 <= self.rating <= MAX_RATING:
+            raise InvalidPlaceError(f"Place rating must be between 0 and {MAX_RATING}")
+        if self.cost < 0:
+            raise InvalidPlaceError("Place cost must not be negative")
 
     @staticmethod
-    def create(name: str, city: str, category: str) -> "Place":
-        return Place(name=name, city=city, category=category)
+    def create(name: str, category: str, city_id: int, rating: float, cost: float) -> "Place":
+        return Place(name=name, category=category, city_id=city_id, rating=rating, cost=cost)
 
 
 @dataclass(frozen=True)
