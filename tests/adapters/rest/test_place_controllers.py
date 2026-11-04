@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from recomendacoes_api.adapters.rest.dependencies import (
@@ -20,11 +21,11 @@ VALID_BODY = {
 }
 
 
-def list_places(places: list[Place]):
+def list_places(places: list[Place], params: dict | None = None):
     use_case = ListPlacesUseCase(MockPlaceRepository(places))
     app.dependency_overrides[get_list_places_use_case] = lambda: use_case
 
-    response = TestClient(app).get("/api/v1/places")
+    response = TestClient(app).get("/api/v1/places", params=params)
 
     app.dependency_overrides.clear()
 
@@ -42,7 +43,14 @@ def create_place(body: dict, places: MockPlaceRepository | None = None):
     return response
 
 
-def test_list_places_returns_places_as_json():
+def build_places(count: int) -> list[Place]:
+    return [
+        Place.create(name=f"Place {i}", category="beach", city_id=CITY.id, rating=4.5, cost=30.0)
+        for i in range(count)
+    ]
+
+
+def test_list_places_returns_a_page_as_json():
     place = Place.create(
         name="Praia do Rosa", category="beach", city_id=CITY.id, rating=4.5, cost=30.0
     )
@@ -51,12 +59,34 @@ def test_list_places_returns_places_as_json():
 
     assert response.status_code == 200
     body = response.json()
-    assert len(body) == 1
-    assert body[0]["name"] == "Praia do Rosa"
-    assert body[0]["category"] == "beach"
-    assert body[0]["city_id"] == CITY.id
-    assert body[0]["rating"] == 4.5
-    assert body[0]["cost"] == 30.0
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["name"] == "Praia do Rosa"
+    assert body["items"][0]["category"] == "beach"
+    assert body["items"][0]["city_id"] == CITY.id
+    assert body["items"][0]["rating"] == 4.5
+    assert body["items"][0]["cost"] == 30.0
+
+
+def test_list_places_applies_limit_and_offset():
+    response = list_places(build_places(5), {"limit": 2, "offset": 3})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 5
+    assert [place["name"] for place in body["items"]] == ["Place 3", "Place 4"]
+
+
+def test_list_places_without_places_returns_an_empty_page():
+    response = list_places([])
+
+    assert response.status_code == 200
+    assert response.json() == {"total": 0, "items": []}
+
+
+@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+def test_list_places_with_invalid_pagination_returns_422(params):
+    assert list_places([], params).status_code == 422
 
 
 def test_create_place_returns_201_and_the_created_place():
