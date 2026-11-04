@@ -1,16 +1,26 @@
 from collections.abc import Callable
-from typing import Self
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from recomendacoes_api.domain.entities import City, Place, State
+from recomendacoes_api.domain.entities import MAX_RATING, MIN_RATING, City, Place, Review, State
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
+
+PlaceSortField = Literal["name", "rating", "cost"]
 
 
 class PaginationRequest(BaseModel):
     limit: int = Field(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
     offset: int = Field(0, ge=0)
+
+
+class PlaceListRequest(PaginationRequest):
+    category: str | None = None
+    city_id: int | None = None
+    min_rating: float | None = Field(default=None, ge=0, le=MAX_RATING)
+    max_cost: float | None = Field(default=None, ge=0)
+    sort: PlaceSortField = "name"
 
 
 class CityListRequest(PaginationRequest):
@@ -30,7 +40,6 @@ class PlaceRequest(BaseModel):
     name: str
     category: str
     city_id: int
-    rating: float = Field(ge=0, le=5)
     cost: float = Field(ge=0)
 
 
@@ -39,8 +48,9 @@ class PlaceResponse(BaseModel):
     name: str
     category: str
     city_id: int
-    rating: float
     cost: float
+    average_rating: float
+    review_count: int
 
     @staticmethod
     def from_entity(place: Place) -> "PlaceResponse":
@@ -49,8 +59,33 @@ class PlaceResponse(BaseModel):
             name=place.name,
             category=place.category,
             city_id=place.city_id,
-            rating=place.rating,
             cost=place.cost,
+            average_rating=place.average_rating,
+            review_count=place.review_count,
+        )
+
+
+class ReviewRequest(BaseModel):
+    device_id: str
+    rating: int = Field(ge=MIN_RATING, le=MAX_RATING)
+    comment: str | None = None
+
+
+class ReviewResponse(BaseModel):
+    id: UUID
+    place_id: UUID
+    device_id: str
+    rating: int
+    comment: str | None = None
+
+    @staticmethod
+    def from_entity(review: Review) -> "ReviewResponse":
+        return ReviewResponse(
+            id=review.id,
+            place_id=review.place_id,
+            device_id=review.device_id,
+            rating=review.rating,
+            comment=review.comment,
         )
 
 

@@ -5,6 +5,7 @@ from sqlalchemy.pool import StaticPool
 
 from recomendacoes_api.adapters.database.postgres_city_repository import CityModel  # noqa: F401
 from recomendacoes_api.adapters.database.postgres_place_repository import Base
+from recomendacoes_api.adapters.database.postgres_review_repository import ReviewModel  # noqa: F401
 from recomendacoes_api.adapters.database.postgres_state_repository import StateModel  # noqa: F401
 
 
