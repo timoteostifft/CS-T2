@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 from recomendacoes_api.domain.exceptions import (
@@ -11,6 +13,8 @@ from recomendacoes_api.domain.exceptions import (
 MIN_RATING = 1
 MAX_RATING = 5
 PLACE_SORT_FIELDS = ("name", "rating", "cost")
+REPORT_WINDOW = timedelta(hours=24)
+REPORTS_TO_ARCHIVE = 3
 
 
 @dataclass
@@ -46,6 +50,9 @@ class Place:
         self.review_count = len(ratings)
         self.average_rating = sum(ratings) / len(ratings) if ratings else 0.0
 
+    def archive(self) -> None:
+        self.archived = True
+
 
 @dataclass
 class Review:
@@ -69,6 +76,22 @@ class Review:
         comment: str | None = None,
     ) -> "Review":
         return Review(place_id=place_id, device_id=device_id, rating=rating, comment=comment)
+
+
+@dataclass
+class Report:
+    place_id: UUID
+    device_hash: str
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    id: UUID = field(default_factory=uuid4)
+
+    @staticmethod
+    def create(place_id: UUID, ip_address: str, user_agent: str) -> "Report":
+        return Report(place_id=place_id, device_hash=Report.hash_device(ip_address, user_agent))
+
+    @staticmethod
+    def hash_device(ip_address: str, user_agent: str) -> str:
+        return sha256(f"{ip_address}|{user_agent}".encode()).hexdigest()
 
 
 @dataclass(frozen=True)

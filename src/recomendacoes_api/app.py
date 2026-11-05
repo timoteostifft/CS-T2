@@ -8,7 +8,11 @@ from recomendacoes_api.adapters.database.place_seed import seed_places
 from recomendacoes_api.adapters.database.postgres_place_repository import Base
 from recomendacoes_api.adapters.database.review_seed import seed_reviews
 from recomendacoes_api.adapters.database.session import engine, sessions
-from recomendacoes_api.adapters.rest.controllers import cities_router, states_router
+from recomendacoes_api.adapters.rest.controllers import (
+    cities_router,
+    health_router,
+    states_router,
+)
 from recomendacoes_api.adapters.rest.controllers import router as places_router
 from recomendacoes_api.adapters.rest.exception_handlers import register_exception_handlers
 
@@ -28,5 +32,6 @@ API_PREFIX = "/api/v1"
 app.include_router(places_router, prefix=API_PREFIX)
 app.include_router(states_router, prefix=API_PREFIX)
 app.include_router(cities_router, prefix=API_PREFIX)
+app.include_router(health_router, prefix=API_PREFIX)
 
 register_exception_handlers(app)

@@ -2,16 +2,24 @@ from uuid import UUID
 
 from recomendacoes_api.domain.entities import (
     PLACE_SORT_FIELDS,
+    REPORT_WINDOW,
+    REPORTS_TO_ARCHIVE,
     City,
     Place,
+    Report,
     Review,
     State,
 )
-from recomendacoes_api.domain.exceptions import InvalidPlaceError, PlaceNotFoundError
+from recomendacoes_api.domain.exceptions import (
+    DuplicateReportError,
+    InvalidPlaceError,
+    PlaceNotFoundError,
+)
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, Page
 from recomendacoes_api.ports.repositories import (
     CityRepository,
     PlaceRepository,
+    ReportRepository,
     ReviewRepository,
     StateRepository,
 )
@@ -124,6 +132,55 @@ class SubmitReviewUseCase:
         self._place_repository.update(place)
 
         return review
+
+
+class ListReviewsUseCase:
+    def __init__(
+        self, place_repository: PlaceRepository, review_repository: ReviewRepository
+    ) -> None:
+        self._place_repository = place_repository
+        self._review_repository = review_repository
+
+    def execute(self, place_id: UUID, limit: int = DEFAULT_LIMIT, offset: int = 0) -> Page[Review]:
+        place = self._place_repository.find_by_id(place_id)
+
+        if place is None or place.archived:
+            raise PlaceNotFoundError(f"Place {place_id} not found")
+
+        return Page(
+            items=self._review_repository.list_by_place(place_id, limit, offset),
+            total=self._review_repository.count_by_place(place_id),
+        )
+
+
+class ReportPlaceUseCase:
+    def __init__(
+        self, place_repository: PlaceRepository, report_repository: ReportRepository
+    ) -> None:
+        self._place_repository = place_repository
+        self._report_repository = report_repository
+
+    def execute(self, place_id: UUID, ip_address: str, user_agent: str) -> Report:
+        report = Report.create(place_id=place_id, ip_address=ip_address, user_agent=user_agent)
+        place = self._place_repository.find_by_id(place_id)
+        since = report.created_at - REPORT_WINDOW
+
+        if place is None or place.archived:
+            raise PlaceNotFoundError(f"Place {place_id} not found")
+        if self._report_repository.exists_by_place_and_device_since(
+            place_id, report.device_hash, since
+        ):
+            raise DuplicateReportError(f"Place {place_id} already reported by this device")
+
+        self._report_repository.save(report)
+
+        reporting_devices = self._report_repository.count_devices_by_place_since(place_id, since)
+
+        if reporting_devices >= REPORTS_TO_ARCHIVE:
+            place.archive()
+            self._place_repository.update(place)
+
+        return report
 
 
 class ListStatesUseCase:

@@ -1,24 +1,28 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 
 from recomendacoes_api.adapters.rest.dependencies import (
     get_create_place_use_case,
     get_get_place_use_case,
     get_list_cities_use_case,
     get_list_places_use_case,
+    get_list_reviews_use_case,
     get_list_states_use_case,
+    get_report_place_use_case,
     get_submit_review_use_case,
 )
 from recomendacoes_api.adapters.rest.schemas import (
     CityListRequest,
     CityResponse,
+    HealthResponse,
     PageResponse,
     PaginationRequest,
     PlaceListRequest,
     PlaceRequest,
     PlaceResponse,
+    ReportResponse,
     ReviewRequest,
     ReviewResponse,
     StateResponse,
@@ -28,13 +32,16 @@ from recomendacoes_api.application.use_cases import (
     GetPlaceUseCase,
     ListCitiesUseCase,
     ListPlacesUseCase,
+    ListReviewsUseCase,
     ListStatesUseCase,
+    ReportPlaceUseCase,
     SubmitReviewUseCase,
 )
 
 router = APIRouter(prefix="/places", tags=["places"])
 states_router = APIRouter(prefix="/states", tags=["locations"])
 cities_router = APIRouter(prefix="/cities", tags=["locations"])
+health_router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("")
@@ -80,11 +87,22 @@ def create_place(
     return PlaceResponse.from_entity(place)
 
 
+@router.get("/{place_id}/reviews")
+def list_reviews(
+    place_id: UUID,
+    pagination: Annotated[PaginationRequest, Query()],
+    use_case: ListReviewsUseCase = Depends(get_list_reviews_use_case),
+) -> PageResponse[ReviewResponse]:
+    page = use_case.execute(place_id, limit=pagination.limit, offset=pagination.offset)
+
+    return PageResponse[ReviewResponse].from_page(page, ReviewResponse.from_entity)
+
+
 @router.post("/{place_id}/reviews", status_code=status.HTTP_201_CREATED)
 def submit_review(
     place_id: UUID,
     request: ReviewRequest,
-    use_case: SubmitReviewUseCase = Depends(get_submit_review_use_case),
+    use_case: Annotated[SubmitReviewUseCase, Depends(get_submit_review_use_case)],
 ) -> ReviewResponse:
     review = use_case.execute(
         place_id=place_id,
@@ -94,6 +112,19 @@ def submit_review(
     )
 
     return ReviewResponse.from_entity(review)
+
+
+@router.post("/{place_id}/reports", status_code=status.HTTP_201_CREATED)
+def report_place(
+    place_id: UUID,
+    request: Request,
+    use_case: Annotated[ReportPlaceUseCase, Depends(get_report_place_use_case)],
+    user_agent: Annotated[str, Header()] = "",
+) -> ReportResponse:
+    ip_address = request.client.host if request.client else ""
+    report = use_case.execute(place_id=place_id, ip_address=ip_address, user_agent=user_agent)
+
+    return ReportResponse.from_entity(report)
 
 
 @states_router.get("")
@@ -116,3 +147,8 @@ def list_cities(
     )
 
     return PageResponse[CityResponse].from_page(page, CityResponse.from_entity)
+
+
+@health_router.get("")
+def health() -> HealthResponse:
+    return HealthResponse()

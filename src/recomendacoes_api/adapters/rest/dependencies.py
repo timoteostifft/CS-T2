@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from recomendacoes_api.adapters.database.postgres_city_repository import PostgresCityRepository
 from recomendacoes_api.adapters.database.postgres_place_repository import PostgresPlaceRepository
+from recomendacoes_api.adapters.database.postgres_report_repository import PostgresReportRepository
 from recomendacoes_api.adapters.database.postgres_review_repository import PostgresReviewRepository
 from recomendacoes_api.adapters.database.postgres_state_repository import PostgresStateRepository
 from recomendacoes_api.adapters.database.session import sessions
@@ -10,7 +11,9 @@ from recomendacoes_api.application.use_cases import (
     GetPlaceUseCase,
     ListCitiesUseCase,
     ListPlacesUseCase,
+    ListReviewsUseCase,
     ListStatesUseCase,
+    ReportPlaceUseCase,
     SubmitReviewUseCase,
 )
 
@@ -23,6 +26,11 @@ def get_place_repository() -> PostgresPlaceRepository:
 @lru_cache
 def get_review_repository() -> PostgresReviewRepository:
     return PostgresReviewRepository(sessions)
+
+
+@lru_cache
+def get_report_repository() -> PostgresReportRepository:
+    return PostgresReportRepository(sessions)
 
 
 @lru_cache
@@ -49,6 +57,14 @@ def get_list_places_use_case() -> ListPlacesUseCase:
 
 def get_submit_review_use_case() -> SubmitReviewUseCase:
     return SubmitReviewUseCase(get_place_repository(), get_review_repository())
+
+
+def get_list_reviews_use_case() -> ListReviewsUseCase:
+    return ListReviewsUseCase(get_place_repository(), get_review_repository())
+
+
+def get_report_place_use_case() -> ReportPlaceUseCase:
+    return ReportPlaceUseCase(get_place_repository(), get_report_repository())
 
 
 def get_list_states_use_case() -> ListStatesUseCase:

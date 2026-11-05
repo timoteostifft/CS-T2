@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from sqlalchemy import Integer, String, select
+from sqlalchemy import Integer, String, func, select
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
 
@@ -53,11 +53,29 @@ class PostgresReviewRepository:
 
             return _to_entity(row) if row else None
 
-    def list_by_place(self, place_id: UUID) -> list[Review]:
-        query = select(ReviewModel).where(ReviewModel.place_id == place_id).order_by(ReviewModel.id)
+    def list_by_place(
+        self, place_id: UUID, limit: int | None = None, offset: int = 0
+    ) -> list[Review]:
+        query = (
+            select(ReviewModel)
+            .where(ReviewModel.place_id == place_id)
+            .order_by(ReviewModel.id)
+            .offset(offset)
+        )
+
+        if limit is not None:
+            query = query.limit(limit)
 
         with self._session_factory() as session:
             return [_to_entity(row) for row in session.scalars(query).all()]
+
+    def count_by_place(self, place_id: UUID) -> int:
+        query = (
+            select(func.count()).select_from(ReviewModel).where(ReviewModel.place_id == place_id)
+        )
+
+        with self._session_factory() as session:
+            return session.scalar(query) or 0
 
     def save(self, review: Review) -> None:
         with self._session_factory() as session:
