@@ -3,10 +3,10 @@ from fastapi.responses import JSONResponse
 
 from recomendacoes_api.domain.exceptions import (
     DomainError,
-    DuplicateReportError,
-    InvalidPlaceError,
-    InvalidReviewError,
-    PlaceNotFoundError,
+    EmailAlreadyRegisteredError,
+    InvalidCredentialsError,
+    InvalidTokenError,
+    InvalidUserError,
 )
 
 
@@ -17,20 +17,24 @@ def error_response(status_code: int, error: str, message: str) -> JSONResponse:
     )
 
 
-def invalid_place_error_handler(request: Request, exc: InvalidPlaceError) -> JSONResponse:
+def invalid_user_error_handler(request: Request, exc: InvalidUserError) -> JSONResponse:
     return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
 
 
-def invalid_review_error_handler(request: Request, exc: InvalidReviewError) -> JSONResponse:
-    return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
-
-
-def place_not_found_error_handler(request: Request, exc: PlaceNotFoundError) -> JSONResponse:
-    return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
-
-
-def duplicate_report_error_handler(request: Request, exc: DuplicateReportError) -> JSONResponse:
+def email_already_registered_error_handler(
+    request: Request, exc: EmailAlreadyRegisteredError
+) -> JSONResponse:
     return error_response(status.HTTP_409_CONFLICT, "conflict", str(exc))
+
+
+def invalid_credentials_error_handler(
+    request: Request, exc: InvalidCredentialsError
+) -> JSONResponse:
+    return error_response(status.HTTP_401_UNAUTHORIZED, "unauthorized", str(exc))
+
+
+def invalid_token_error_handler(request: Request, exc: InvalidTokenError) -> JSONResponse:
+    return error_response(status.HTTP_401_UNAUTHORIZED, "unauthorized", str(exc))
 
 
 def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
@@ -38,8 +42,8 @@ def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    app.add_exception_handler(InvalidPlaceError, invalid_place_error_handler)
-    app.add_exception_handler(InvalidReviewError, invalid_review_error_handler)
-    app.add_exception_handler(PlaceNotFoundError, place_not_found_error_handler)
-    app.add_exception_handler(DuplicateReportError, duplicate_report_error_handler)
+    app.add_exception_handler(InvalidUserError, invalid_user_error_handler)
+    app.add_exception_handler(EmailAlreadyRegisteredError, email_already_registered_error_handler)
+    app.add_exception_handler(InvalidCredentialsError, invalid_credentials_error_handler)
+    app.add_exception_handler(InvalidTokenError, invalid_token_error_handler)
     app.add_exception_handler(DomainError, domain_error_handler)

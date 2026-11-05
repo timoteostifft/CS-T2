@@ -1,75 +1,55 @@
 from functools import lru_cache
+from typing import Annotated
 
-from recomendacoes_api.adapters.database.postgres_city_repository import PostgresCityRepository
-from recomendacoes_api.adapters.database.postgres_place_repository import PostgresPlaceRepository
-from recomendacoes_api.adapters.database.postgres_report_repository import PostgresReportRepository
-from recomendacoes_api.adapters.database.postgres_review_repository import PostgresReviewRepository
-from recomendacoes_api.adapters.database.postgres_state_repository import PostgresStateRepository
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from recomendacoes_api.adapters.database.postgres_user_repository import PostgresUserRepository
 from recomendacoes_api.adapters.database.session import sessions
+from recomendacoes_api.adapters.security.argon2_password_hasher import Argon2PasswordHasher
+from recomendacoes_api.adapters.security.jwt_token_service import JwtTokenService
 from recomendacoes_api.application.use_cases import (
-    CreatePlaceUseCase,
-    GetPlaceUseCase,
-    ListCitiesUseCase,
-    ListPlacesUseCase,
-    ListReviewsUseCase,
-    ListStatesUseCase,
-    ReportPlaceUseCase,
-    SubmitReviewUseCase,
+    GetCurrentUserUseCase,
+    LoginUserUseCase,
+    RegisterUserUseCase,
 )
+from recomendacoes_api.domain.entities import User
+from recomendacoes_api.settings import settings
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @lru_cache
-def get_place_repository() -> PostgresPlaceRepository:
-    return PostgresPlaceRepository(sessions)
+def get_user_repository() -> PostgresUserRepository:
+    return PostgresUserRepository(sessions)
 
 
 @lru_cache
-def get_review_repository() -> PostgresReviewRepository:
-    return PostgresReviewRepository(sessions)
+def get_password_hasher() -> Argon2PasswordHasher:
+    return Argon2PasswordHasher()
 
 
 @lru_cache
-def get_report_repository() -> PostgresReportRepository:
-    return PostgresReportRepository(sessions)
+def get_token_service() -> JwtTokenService:
+    return JwtTokenService(settings.jwt_secret, settings.jwt_expire_minutes)
 
 
-@lru_cache
-def get_state_repository() -> PostgresStateRepository:
-    return PostgresStateRepository(sessions)
+def get_register_user_use_case() -> RegisterUserUseCase:
+    return RegisterUserUseCase(get_user_repository(), get_password_hasher())
 
 
-@lru_cache
-def get_city_repository() -> PostgresCityRepository:
-    return PostgresCityRepository(sessions)
+def get_login_user_use_case() -> LoginUserUseCase:
+    return LoginUserUseCase(get_user_repository(), get_password_hasher(), get_token_service())
 
 
-def get_get_place_use_case() -> GetPlaceUseCase:
-    return GetPlaceUseCase(get_place_repository())
+def get_get_current_user_use_case() -> GetCurrentUserUseCase:
+    return GetCurrentUserUseCase(get_user_repository(), get_token_service())
 
 
-def get_create_place_use_case() -> CreatePlaceUseCase:
-    return CreatePlaceUseCase(get_place_repository(), get_city_repository())
+def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    use_case: Annotated[GetCurrentUserUseCase, Depends(get_get_current_user_use_case)],
+) -> User:
+    token = credentials.credentials if credentials else None
 
-
-def get_list_places_use_case() -> ListPlacesUseCase:
-    return ListPlacesUseCase(get_place_repository())
-
-
-def get_submit_review_use_case() -> SubmitReviewUseCase:
-    return SubmitReviewUseCase(get_place_repository(), get_review_repository())
-
-
-def get_list_reviews_use_case() -> ListReviewsUseCase:
-    return ListReviewsUseCase(get_place_repository(), get_review_repository())
-
-
-def get_report_place_use_case() -> ReportPlaceUseCase:
-    return ReportPlaceUseCase(get_place_repository(), get_report_repository())
-
-
-def get_list_states_use_case() -> ListStatesUseCase:
-    return ListStatesUseCase(get_state_repository())
-
-
-def get_list_cities_use_case() -> ListCitiesUseCase:
-    return ListCitiesUseCase(get_city_repository())
+    return use_case.execute(token)

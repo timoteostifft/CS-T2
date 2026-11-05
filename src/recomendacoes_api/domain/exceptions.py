@@ -2,25 +2,17 @@ class DomainError(Exception):
     pass
 
 
-class InvalidPlaceError(DomainError):
+class InvalidUserError(DomainError):
     pass
 
 
-class PlaceNotFoundError(DomainError):
+class EmailAlreadyRegisteredError(DomainError):
     pass
 
 
-class InvalidStateError(DomainError):
+class InvalidCredentialsError(DomainError):
     pass
 
 
-class InvalidCityError(DomainError):
-    pass
-
-
-class InvalidReviewError(DomainError):
-    pass
-
-
-class DuplicateReportError(DomainError):
+class InvalidTokenError(DomainError):
     pass
