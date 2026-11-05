@@ -1,8 +1,10 @@
-# Recomendações API
+# ViajaJunto API
 
 [![CI](https://github.com/timoteostifft/CS-T2/actions/workflows/ci.yml/badge.svg)](https://github.com/timoteostifft/CS-T2/actions/workflows/ci.yml)
 
-API para busca de lugares e envio de avaliações e sugestões de atividades pelos usuários.
+API de planejamento colaborativo de viagens. Usuários criam viagens com destinos, atividades e orçamento, convidam colaboradores (Editor ou Visualizador) e avaliam atividades de um catálogo público.
+
+Os requisitos estão em [docs/requirements.md](https://github.com/ViajaJunto/template-doc-construcao-software/blob/main/docs/requirements.md). Esta versão implementa os requisitos funcionais de prioridade **Alta**.
 
 Construída com [FastAPI](https://fastapi.tiangolo.com/) seguindo uma **Arquitetura Hexagonal** (Ports & Adapters): as regras de negócio vivem em `domain/`, isoladas dos detalhes de infraestrutura (HTTP, banco de dados) através de interfaces (`ports/`) implementadas por `adapters/` intercambiáveis.
 
@@ -23,11 +25,13 @@ brew install uv
 docker compose up --build
 ```
 
-Isso sobe dois containers: a API (`api`, porta `8000`) e um Postgres padrão (`db`, porta `5432`, usuário/senha/banco `postgres`/`postgres`/`recomendacoes`). Na primeira inicialização, a API cria a tabela `places` automaticamente (sem dados de exemplo — a tabela sobe vazia).
+Isso sobe dois containers: a API (`api`, porta `8000`) e um Postgres padrão (`db`, porta `5432`, usuário/senha/banco `postgres`/`postgres`/`recomendacoes`). Na inicialização, a API cria as tabelas automaticamente (sem dados de exemplo). Como não há migrations, ao atualizar para uma versão com colunas ou tabelas novas é preciso recriar o volume (`docker compose down -v`).
 
 ```bash
-curl http://localhost:8000/places
+curl http://localhost:8000/api/v1/health
 ```
+
+Documentação interativa em `http://localhost:8000/docs`.
 
 Pra derrubar tudo (incluindo o volume do banco):
 
@@ -43,6 +47,15 @@ Requer um Postgres acessível e um `.env` na raiz do projeto — a configuraçã
 cp .env.example .env
 # edite .env se sua string de conexão for diferente do padrão
 ```
+
+Variáveis do `.env` (todas obrigatórias, sem valor padrão no código):
+
+| Variável             | Descrição                                          |
+| -------------------- | -------------------------------------------------- |
+| `DATABASE_URL`       | String de conexão do Postgres.                     |
+| `JWT_SECRET`         | Segredo de assinatura dos tokens (use 32+ bytes).  |
+| `JWT_EXPIRE_MINUTES` | Validade do token de acesso, em minutos.           |
+| `POSTGRES_*`         | Usuário, senha e banco usados pelo Docker Compose. |
 
 ```bash
 uv sync
@@ -67,8 +80,10 @@ uv run pytest -v
 Os testes são organizados por camada:
 
 - `tests/domain/` — entidades testadas isoladamente, sem framework ou infraestrutura envolvida.
-- `tests/application/` — use cases testados com um repositório mock, sem precisar de banco de dados ou servidor HTTP.
-- `tests/adapters/rest/` — endpoints testados via `TestClient`, com `dependency_overrides` para injetar mocks.
+- `tests/application/` — use cases testados com repositórios mock, sem banco de dados ou servidor HTTP (inclui a matriz de permissões por papel).
+- `tests/adapters/database/` — repositórios reais contra um SQLite em memória, mais os mocks (`Mock<Entidade>Repository`) reutilizados nas outras camadas.
+- `tests/adapters/security/` — hash de senha (argon2) e tokens JWT, mais os mocks dessas portas.
+- `tests/adapters/rest/` — endpoints testados via `TestClient`, com `dependency_overrides` para injetar use cases construídos com mocks.
 
 ## Lint e formatação
 
@@ -78,6 +93,28 @@ uv run ruff format .     # formata o código
 ```
 
 Configurado em `[tool.ruff]` no `pyproject.toml` (line length 100, regras de pyflakes/pycodestyle/isort/pyupgrade/bugbear).
+
+## API
+
+Todas as rotas ficam sob `/api/v1`. Rotas marcadas com 🔒 exigem `Authorization: Bearer <token>`. Listagens são paginadas com `limit` (1 a 100) e `offset`, e respondem `{"total": int, "items": [...]}`. Erros seguem o formato `{"error": "...", "code": 400, "message": "..."}`.
+
+| Módulo       | Rotas                                                                                                                                   | Requisitos       |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Autenticação | `POST /auth/register`, `POST /auth/login`, 🔒 `GET /auth/me`                                                                            | RF01, RF02       |
+| Viagens      | 🔒 `POST /trips`, `GET /trips` (painel, inclui compartilhadas), `GET/PUT/DELETE /trips/{id}`, `POST /trips/join`                        | RF04, RF05, RF06 |
+| Destinos     | 🔒 `POST/GET /trips/{id}/destinations`, `PUT /trips/{id}/destinations/order`, `PUT/DELETE /trips/{id}/destinations/{destination_id}`    | RF08, RF09       |
+| Atividades   | `GET /activities` e `GET /activities/{id}` (públicos), 🔒 `POST /activities`, 🔒 `/trips/{id}/destinations/{id}/activities` (agendar)   | RF12, RF13, RF14 |
+| Orçamento    | 🔒 `PUT /trips/{id}/budget`; o custo previsto fica em cada atividade agendada                                                           | RF15, RF16       |
+| Colaboração  | 🔒 `GET /trips/{id}/collaborators`, `PUT/DELETE /trips/{id}/collaborators/{user_id}`                                                    | RF18, RF19, RF20 |
+| Avaliações   | 🔒 `PUT /activities/{id}/review`, `GET /activities/{id}/reviews` (público)                                                              | RF22, RF23       |
+
+Como funciona a colaboração: cada viagem tem um `invite_code`, visível só para o criador. Quem o envia em `POST /trips/join` entra como **Visualizador**, e o criador pode promovê-lo a **Editor** ou removê-lo.
+
+| Ação                                              | Criador | Editor | Visualizador | Não participante |
+| ------------------------------------------------- | :-----: | :----: | :----------: | :--------------: |
+| Ler viagem, destinos, atividades e colaboradores  |   ✅    |   ✅   |      ✅      |       403        |
+| Editar destinos, atividades agendadas e orçamento |   ✅    |   ✅   |     403      |       403        |
+| Editar/excluir a viagem, gerenciar colaboradores  |   ✅    |  403   |     403      |       403        |
 
 ## Arquitetura
 
@@ -104,30 +141,33 @@ Este projeto segue a **Arquitetura Hexagonal** (também conhecida como Ports & A
 
 | Camada                          | Responsabilidade                                                                                                                                                     |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `domain/entities.py`             | Objetos de negócio centrais e seus invariantes (ex: `Place`). Python puro, sem imports de framework.                                                                 |
-| `domain/exceptions.py`           | Exceções de negócio (ex: `InvalidPlaceError`), uma por tipo de erro, levantadas pelas entidades ou pelos use cases.                                                  |
-| `ports/repositories.py`          | Interfaces (`Protocol`) que o domínio exige do mundo externo — ex: `PlaceRepository`. Definidas para a aplicação, implementadas nos adapters.                        |
-| `application/use_cases.py`       | Orquestra entidades e ports para cumprir um caso de uso específico (ex: `ListPlacesUseCase`). Sem regra de negócio própria, sem código de framework.                 |
+| `domain/entities.py`             | Objetos de negócio centrais e seus invariantes (`User`, `Trip`, `Destination`, `Activity`, `Review`…). Python puro, sem imports de framework.                                                                 |
+| `domain/exceptions.py`           | Exceções de negócio (ex: `InvalidTripError`), uma por tipo de erro, levantadas pelas entidades ou pelos use cases.                                                  |
+| `ports/repositories.py`          | Interfaces (`Protocol`) que o domínio exige do mundo externo — ex: `TripRepository`. Portas não-repositório (`PasswordHasher`, `TokenService`) ficam em `ports/security.py`. Definidas para a aplicação, implementadas nos adapters.                        |
+| `application/use_cases.py`       | Orquestra entidades e ports para cumprir um caso de uso específico (ex: `CreateTripUseCase`). Sem regra de negócio própria, sem código de framework.                 |
 | `adapters/rest/`                 | **Driving adapter** — traduz requisições HTTP em chamadas de use case, objetos de domínio em respostas de API, e exceções de domínio em respostas HTTP de erro.      |
-| `adapters/database/`             | **Driven adapter** — implementa as ports com um mecanismo concreto de armazenamento (Postgres via SQLAlchemy).                                                        |
-| `settings.py`                    | Configuração via variáveis de ambiente (`pydantic-settings`), ex: `DATABASE_URL`.                                                                                     |
+| `adapters/database/`             | **Driven adapter** — implementa as ports com um mecanismo concreto: Postgres via SQLAlchemy em `adapters/database/`, argon2 e JWT em `adapters/security/`.                                                        |
+| `settings.py`                    | Configuração via variáveis de ambiente (`pydantic-settings`), ex: `DATABASE_URL`, `JWT_SECRET`.                                                                                     |
 
 ## Estrutura do projeto
 
 ```
 src/recomendacoes_api/
 ├── app.py                       # Entrypoint do FastAPI (registra rotas, exception handlers, lifespan)
-├── settings.py                   # Configuração via variáveis de ambiente (DATABASE_URL)
+├── settings.py                  # Configuração via variáveis de ambiente
 ├── domain/
-│   ├── entities.py              # Entidades de negócio (ex: Place)
-│   └── exceptions.py             # Exceções de negócio (ex: InvalidPlaceError)
+│   ├── entities.py              # User, Trip (agregado com colaboradores), Destination, Activity, Review…
+│   ├── exceptions.py            # Exceções de negócio, uma por tipo de erro
+│   └── pagination.py            # Page[T] compartilhado pelas listagens
 ├── ports/
-│   └── repositories.py           # Interfaces que a aplicação exige da infraestrutura
+│   ├── repositories.py          # Interfaces que a aplicação exige da persistência
+│   └── security.py              # PasswordHasher e TokenService
 ├── application/
-│   └── use_cases.py              # Orquestra entidades de domínio para um caso de uso específico
+│   └── use_cases.py             # Um use case por ação (VerbNounUseCase.execute)
 └── adapters/
-    ├── rest/                     # Driving adapter: controllers HTTP, schemas, exception handlers
-    └── database/                  # Driven adapter: sessão SQLAlchemy + PostgresPlaceRepository
+    ├── rest/                    # Driving adapter: controllers, schemas, dependencies, exception handlers
+    ├── database/                # Driven adapter: sessão SQLAlchemy + repositórios Postgres
+    └── security/                # Driven adapter: Argon2PasswordHasher e JwtTokenService
 ```
 
 ## Docker
