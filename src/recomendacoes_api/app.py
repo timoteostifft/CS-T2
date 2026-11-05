@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from recomendacoes_api.adapters.database.location_seed import seed_locations
+from recomendacoes_api.adapters.database.place_seed import seed_places
 from recomendacoes_api.adapters.database.postgres_place_repository import Base
+from recomendacoes_api.adapters.database.review_seed import seed_reviews
 from recomendacoes_api.adapters.database.session import engine, sessions
 from recomendacoes_api.adapters.rest.controllers import cities_router, states_router
 from recomendacoes_api.adapters.rest.controllers import router as places_router
@@ -15,6 +17,8 @@ from recomendacoes_api.adapters.rest.exception_handlers import register_exceptio
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     Base.metadata.create_all(bind=engine)
     seed_locations(sessions)
+    seed_places(sessions)
+    seed_reviews(sessions)
     yield
 
 
