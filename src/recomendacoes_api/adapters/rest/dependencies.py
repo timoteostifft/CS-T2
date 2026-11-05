@@ -10,6 +10,7 @@ from recomendacoes_api.application.use_cases import (
     GetPlaceUseCase,
     ListCitiesUseCase,
     ListPlacesUseCase,
+    ListReviewsUseCase,
     ListStatesUseCase,
     SubmitReviewUseCase,
 )
@@ -49,6 +50,10 @@ def get_list_places_use_case() -> ListPlacesUseCase:
 
 def get_submit_review_use_case() -> SubmitReviewUseCase:
     return SubmitReviewUseCase(get_place_repository(), get_review_repository())
+
+
+def get_list_reviews_use_case() -> ListReviewsUseCase:
+    return ListReviewsUseCase(get_place_repository(), get_review_repository())
 
 
 def get_list_states_use_case() -> ListStatesUseCase:

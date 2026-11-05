@@ -126,6 +126,25 @@ class SubmitReviewUseCase:
         return review
 
 
+class ListReviewsUseCase:
+    def __init__(
+        self, place_repository: PlaceRepository, review_repository: ReviewRepository
+    ) -> None:
+        self._place_repository = place_repository
+        self._review_repository = review_repository
+
+    def execute(self, place_id: UUID, limit: int = DEFAULT_LIMIT, offset: int = 0) -> Page[Review]:
+        place = self._place_repository.find_by_id(place_id)
+
+        if place is None or place.archived:
+            raise PlaceNotFoundError(f"Place {place_id} not found")
+
+        return Page(
+            items=self._review_repository.list_by_place(place_id, limit, offset),
+            total=self._review_repository.count_by_place(place_id),
+        )
+
+
 class ListStatesUseCase:
     def __init__(self, state_repository: StateRepository) -> None:
         self._state_repository = state_repository

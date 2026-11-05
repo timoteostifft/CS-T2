@@ -8,6 +8,7 @@ from recomendacoes_api.adapters.rest.dependencies import (
     get_get_place_use_case,
     get_list_cities_use_case,
     get_list_places_use_case,
+    get_list_reviews_use_case,
     get_list_states_use_case,
     get_submit_review_use_case,
 )
@@ -28,6 +29,7 @@ from recomendacoes_api.application.use_cases import (
     GetPlaceUseCase,
     ListCitiesUseCase,
     ListPlacesUseCase,
+    ListReviewsUseCase,
     ListStatesUseCase,
     SubmitReviewUseCase,
 )
@@ -78,6 +80,17 @@ def create_place(
     )
 
     return PlaceResponse.from_entity(place)
+
+
+@router.get("/{place_id}/reviews")
+def list_reviews(
+    place_id: UUID,
+    pagination: Annotated[PaginationRequest, Query()],
+    use_case: ListReviewsUseCase = Depends(get_list_reviews_use_case),
+) -> PageResponse[ReviewResponse]:
+    page = use_case.execute(place_id, limit=pagination.limit, offset=pagination.offset)
+
+    return PageResponse[ReviewResponse].from_page(page, ReviewResponse.from_entity)
 
 
 @router.post("/{place_id}/reviews", status_code=status.HTTP_201_CREATED)
