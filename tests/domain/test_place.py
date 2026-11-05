@@ -88,3 +88,11 @@ def test_recalculate_rating_with_empty_list_resets_to_zero():
 
     assert place.review_count == 0
     assert place.average_rating == 0.0
+
+
+def test_archive_marks_place_as_archived():
+    place = build_place()
+
+    place.archive()
+
+    assert place.archived is True

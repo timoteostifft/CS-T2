@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 
 from recomendacoes_api.domain.exceptions import (
     DomainError,
+    DuplicateReportError,
     InvalidPlaceError,
     InvalidReviewError,
     PlaceNotFoundError,
@@ -28,6 +29,10 @@ def place_not_found_error_handler(request: Request, exc: PlaceNotFoundError) -> 
     return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
 
 
+def duplicate_report_error_handler(request: Request, exc: DuplicateReportError) -> JSONResponse:
+    return error_response(status.HTTP_409_CONFLICT, "conflict", str(exc))
+
+
 def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
 
@@ -36,4 +41,5 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(InvalidPlaceError, invalid_place_error_handler)
     app.add_exception_handler(InvalidReviewError, invalid_review_error_handler)
     app.add_exception_handler(PlaceNotFoundError, place_not_found_error_handler)
+    app.add_exception_handler(DuplicateReportError, duplicate_report_error_handler)
     app.add_exception_handler(DomainError, domain_error_handler)

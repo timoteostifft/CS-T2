@@ -4,6 +4,7 @@ from recomendacoes_api.adapters.rest.dependencies import get_list_places_use_cas
 from recomendacoes_api.app import app
 from recomendacoes_api.domain.exceptions import (
     DomainError,
+    DuplicateReportError,
     InvalidPlaceError,
     InvalidReviewError,
     PlaceNotFoundError,
@@ -55,6 +56,17 @@ def test_place_not_found_error_is_translated_to_404():
 
     assert response.status_code == 404
     assert response.json() == {"error": "not_found", "code": 404, "message": "Place not found"}
+
+
+def test_duplicate_report_error_is_translated_to_409():
+    response = get_places_with(DuplicateReportError("Place already reported by this device"))
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "error": "conflict",
+        "code": 409,
+        "message": "Place already reported by this device",
+    }
 
 
 def test_unmapped_domain_error_falls_back_to_400():

@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from recomendacoes_api.domain.entities import City, Place, Review, State
+from recomendacoes_api.domain.entities import City, Place, Report, Review, State
 
 
 class PlaceRepository(Protocol):
@@ -45,6 +46,16 @@ class ReviewRepository(Protocol):
     def save(self, review: Review) -> None: ...
 
     def update(self, review: Review) -> None: ...
+
+
+class ReportRepository(Protocol):
+    def exists_by_place_and_device_since(
+        self, place_id: UUID, device_hash: str, since: datetime
+    ) -> bool: ...
+
+    def count_devices_by_place_since(self, place_id: UUID, since: datetime) -> int: ...
+
+    def save(self, report: Report) -> None: ...
 
 
 class StateRepository(Protocol):

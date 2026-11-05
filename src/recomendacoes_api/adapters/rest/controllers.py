@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 
 from recomendacoes_api.adapters.rest.dependencies import (
     get_create_place_use_case,
@@ -10,6 +10,7 @@ from recomendacoes_api.adapters.rest.dependencies import (
     get_list_places_use_case,
     get_list_reviews_use_case,
     get_list_states_use_case,
+    get_report_place_use_case,
     get_submit_review_use_case,
 )
 from recomendacoes_api.adapters.rest.schemas import (
@@ -20,6 +21,7 @@ from recomendacoes_api.adapters.rest.schemas import (
     PlaceListRequest,
     PlaceRequest,
     PlaceResponse,
+    ReportResponse,
     ReviewRequest,
     ReviewResponse,
     StateResponse,
@@ -31,6 +33,7 @@ from recomendacoes_api.application.use_cases import (
     ListPlacesUseCase,
     ListReviewsUseCase,
     ListStatesUseCase,
+    ReportPlaceUseCase,
     SubmitReviewUseCase,
 )
 
@@ -107,6 +110,19 @@ def submit_review(
     )
 
     return ReviewResponse.from_entity(review)
+
+
+@router.post("/{place_id}/reports", status_code=status.HTTP_201_CREATED)
+def report_place(
+    place_id: UUID,
+    request: Request,
+    user_agent: Annotated[str, Header()] = "",
+    use_case: ReportPlaceUseCase = Depends(get_report_place_use_case),
+) -> ReportResponse:
+    ip_address = request.client.host if request.client else ""
+    report = use_case.execute(place_id=place_id, ip_address=ip_address, user_agent=user_agent)
+
+    return ReportResponse.from_entity(report)
 
 
 @states_router.get("")

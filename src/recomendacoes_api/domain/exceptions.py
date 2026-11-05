@@ -20,3 +20,7 @@ class InvalidCityError(DomainError):
 
 class InvalidReviewError(DomainError):
     pass
+
+
+class DuplicateReportError(DomainError):
+    pass

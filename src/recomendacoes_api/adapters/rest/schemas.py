@@ -1,10 +1,19 @@
 from collections.abc import Callable
+from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from recomendacoes_api.domain.entities import MAX_RATING, MIN_RATING, City, Place, Review, State
+from recomendacoes_api.domain.entities import (
+    MAX_RATING,
+    MIN_RATING,
+    City,
+    Place,
+    Report,
+    Review,
+    State,
+)
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
 
 PlaceSortField = Literal["name", "rating", "cost"]
@@ -87,6 +96,16 @@ class ReviewResponse(BaseModel):
             rating=review.rating,
             comment=review.comment,
         )
+
+
+class ReportResponse(BaseModel):
+    id: UUID
+    place_id: UUID
+    created_at: datetime
+
+    @staticmethod
+    def from_entity(report: Report) -> "ReportResponse":
+        return ReportResponse(id=report.id, place_id=report.place_id, created_at=report.created_at)
 
 
 class StateResponse(BaseModel):

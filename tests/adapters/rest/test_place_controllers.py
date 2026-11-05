@@ -8,6 +8,7 @@ from recomendacoes_api.adapters.rest.dependencies import (
     get_get_place_use_case,
     get_list_places_use_case,
     get_list_reviews_use_case,
+    get_report_place_use_case,
     get_submit_review_use_case,
 )
 from recomendacoes_api.app import app
@@ -16,11 +17,13 @@ from recomendacoes_api.application.use_cases import (
     GetPlaceUseCase,
     ListPlacesUseCase,
     ListReviewsUseCase,
+    ReportPlaceUseCase,
     SubmitReviewUseCase,
 )
 from recomendacoes_api.domain.entities import City, Place, Review
 from tests.adapters.database.mock_city_repository import MockCityRepository
 from tests.adapters.database.mock_place_repository import MockPlaceRepository
+from tests.adapters.database.mock_report_repository import MockReportRepository
 from tests.adapters.database.mock_review_repository import MockReviewRepository
 
 CITY = City(id=4207304, name="Imbituba", state_code="SC")
@@ -98,6 +101,24 @@ def list_reviews(
     app.dependency_overrides[get_list_reviews_use_case] = lambda: use_case
 
     response = TestClient(app).get(f"/api/v1/places/{place_id}/reviews", params=params)
+
+    app.dependency_overrides.clear()
+
+    return response
+
+
+def report_place(
+    place_id: UUID,
+    places: MockPlaceRepository,
+    reports: MockReportRepository | None = None,
+    user_agent: str = "Firefox",
+):
+    use_case = ReportPlaceUseCase(places, reports or MockReportRepository())
+    app.dependency_overrides[get_report_place_use_case] = lambda: use_case
+
+    response = TestClient(app).post(
+        f"/api/v1/places/{place_id}/reports", headers={"User-Agent": user_agent}
+    )
 
     app.dependency_overrides.clear()
 
@@ -466,3 +487,59 @@ def test_list_reviews_with_invalid_query_params_returns_422(params):
 
 def test_list_reviews_with_invalid_place_id_returns_422():
     assert list_reviews("not-a-uuid", []).status_code == 422
+
+
+def test_report_place_returns_201_without_exposing_the_device_hash():
+    place = Place.create(name="Praia do Rosa", category="beach", city_id=CITY.id, cost=30.0)
+
+    response = report_place(place.id, MockPlaceRepository([place]))
+
+    assert response.status_code == 201
+    body = response.json()
+    assert set(body) == {"id", "place_id", "created_at"}
+    assert body["place_id"] == str(place.id)
+
+
+def test_report_place_from_same_device_returns_409():
+    place = Place.create(name="Praia do Rosa", category="beach", city_id=CITY.id, cost=30.0)
+    places = MockPlaceRepository([place])
+    reports = MockReportRepository()
+
+    report_place(place.id, places, reports)
+    response = report_place(place.id, places, reports)
+
+    assert response.status_code == 409
+    assert response.json()["error"] == "conflict"
+    assert response.json()["code"] == 409
+
+
+def test_report_place_by_three_devices_archives_and_hides_the_place():
+    place = Place.create(name="Praia do Rosa", category="beach", city_id=CITY.id, cost=30.0)
+    places = MockPlaceRepository([place])
+    reports = MockReportRepository()
+
+    for user_agent in ["Firefox", "Chrome", "Safari"]:
+        assert report_place(place.id, places, reports, user_agent).status_code == 201
+
+    assert places.find_by_id(place.id).archived is True
+    assert list_places([place]).json()["total"] == 0
+    assert get_place(place.id, [place]).status_code == 404
+
+
+def test_report_missing_place_returns_404():
+    response = report_place(uuid4(), MockPlaceRepository())
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "not_found"
+
+
+def test_report_archived_place_returns_404():
+    place = Place(name="Praia do Rosa", category="beach", city_id=CITY.id, cost=30.0, archived=True)
+
+    response = report_place(place.id, MockPlaceRepository([place]))
+
+    assert response.status_code == 404
+
+
+def test_report_place_with_invalid_place_id_returns_422():
+    assert report_place("not-a-uuid", MockPlaceRepository()).status_code == 422
