@@ -2,9 +2,11 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from recomendacoes_api.domain.exceptions import (
+    DestinationNotFoundError,
     DomainError,
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
+    InvalidDestinationError,
     InvalidTokenError,
     InvalidTripError,
     InvalidUserError,
@@ -52,6 +54,18 @@ def trip_access_denied_error_handler(request: Request, exc: TripAccessDeniedErro
     return error_response(status.HTTP_403_FORBIDDEN, "forbidden", str(exc))
 
 
+def invalid_destination_error_handler(
+    request: Request, exc: InvalidDestinationError
+) -> JSONResponse:
+    return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
+
+
+def destination_not_found_error_handler(
+    request: Request, exc: DestinationNotFoundError
+) -> JSONResponse:
+    return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
+
+
 def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
 
@@ -64,4 +78,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(InvalidTripError, invalid_trip_error_handler)
     app.add_exception_handler(TripNotFoundError, trip_not_found_error_handler)
     app.add_exception_handler(TripAccessDeniedError, trip_access_denied_error_handler)
+    app.add_exception_handler(InvalidDestinationError, invalid_destination_error_handler)
+    app.add_exception_handler(DestinationNotFoundError, destination_not_found_error_handler)
     app.add_exception_handler(DomainError, domain_error_handler)

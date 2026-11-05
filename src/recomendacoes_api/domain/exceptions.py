@@ -28,3 +28,11 @@ class TripNotFoundError(DomainError):
 
 class TripAccessDeniedError(DomainError):
     pass
+
+
+class InvalidDestinationError(DomainError):
+    pass
+
+
+class DestinationNotFoundError(DomainError):
+    pass

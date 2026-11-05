@@ -1,7 +1,7 @@
 from typing import Protocol
 from uuid import UUID
 
-from recomendacoes_api.domain.entities import Trip, User
+from recomendacoes_api.domain.entities import Destination, Trip, User
 
 
 class UserRepository(Protocol):
@@ -26,3 +26,21 @@ class TripRepository(Protocol):
     def update(self, trip: Trip) -> None: ...
 
     def delete(self, trip_id: UUID) -> None: ...
+
+
+class DestinationRepository(Protocol):
+    def list_by_trip(
+        self, trip_id: UUID, limit: int | None = None, offset: int = 0
+    ) -> list[Destination]: ...
+
+    def count_by_trip(self, trip_id: UUID) -> int: ...
+
+    def find_by_id(self, destination_id: UUID) -> Destination | None: ...
+
+    def save(self, destination: Destination) -> None: ...
+
+    def update(self, destination: Destination) -> None: ...
+
+    def update_many(self, destinations: list[Destination]) -> None: ...
+
+    def delete(self, destination_id: UUID) -> None: ...

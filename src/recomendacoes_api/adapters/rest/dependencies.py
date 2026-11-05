@@ -4,19 +4,27 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from recomendacoes_api.adapters.database.postgres_destination_repository import (
+    PostgresDestinationRepository,
+)
 from recomendacoes_api.adapters.database.postgres_trip_repository import PostgresTripRepository
 from recomendacoes_api.adapters.database.postgres_user_repository import PostgresUserRepository
 from recomendacoes_api.adapters.database.session import sessions
 from recomendacoes_api.adapters.security.argon2_password_hasher import Argon2PasswordHasher
 from recomendacoes_api.adapters.security.jwt_token_service import JwtTokenService
 from recomendacoes_api.application.use_cases import (
+    AddDestinationUseCase,
     CreateTripUseCase,
+    DeleteDestinationUseCase,
     DeleteTripUseCase,
     GetCurrentUserUseCase,
     GetTripUseCase,
+    ListDestinationsUseCase,
     ListTripsUseCase,
     LoginUserUseCase,
     RegisterUserUseCase,
+    ReorderDestinationsUseCase,
+    UpdateDestinationUseCase,
     UpdateTripUseCase,
 )
 from recomendacoes_api.domain.entities import User
@@ -33,6 +41,11 @@ def get_user_repository() -> PostgresUserRepository:
 @lru_cache
 def get_trip_repository() -> PostgresTripRepository:
     return PostgresTripRepository(sessions)
+
+
+@lru_cache
+def get_destination_repository() -> PostgresDestinationRepository:
+    return PostgresDestinationRepository(sessions)
 
 
 @lru_cache
@@ -75,6 +88,26 @@ def get_update_trip_use_case() -> UpdateTripUseCase:
 
 def get_delete_trip_use_case() -> DeleteTripUseCase:
     return DeleteTripUseCase(get_trip_repository())
+
+
+def get_add_destination_use_case() -> AddDestinationUseCase:
+    return AddDestinationUseCase(get_trip_repository(), get_destination_repository())
+
+
+def get_list_destinations_use_case() -> ListDestinationsUseCase:
+    return ListDestinationsUseCase(get_trip_repository(), get_destination_repository())
+
+
+def get_update_destination_use_case() -> UpdateDestinationUseCase:
+    return UpdateDestinationUseCase(get_trip_repository(), get_destination_repository())
+
+
+def get_delete_destination_use_case() -> DeleteDestinationUseCase:
+    return DeleteDestinationUseCase(get_trip_repository(), get_destination_repository())
+
+
+def get_reorder_destinations_use_case() -> ReorderDestinationsUseCase:
+    return ReorderDestinationsUseCase(get_trip_repository(), get_destination_repository())
 
 
 def get_current_user(

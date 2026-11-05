@@ -1,17 +1,30 @@
 from datetime import date
 from uuid import UUID
 
-from recomendacoes_api.domain.entities import MIN_PASSWORD_LENGTH, Trip, User
+from recomendacoes_api.domain.entities import (
+    FIRST_POSITION,
+    MIN_PASSWORD_LENGTH,
+    Destination,
+    DestinationCategory,
+    Trip,
+    User,
+)
 from recomendacoes_api.domain.exceptions import (
+    DestinationNotFoundError,
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
+    InvalidDestinationError,
     InvalidTokenError,
     InvalidUserError,
     TripAccessDeniedError,
     TripNotFoundError,
 )
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, Page
-from recomendacoes_api.ports.repositories import TripRepository, UserRepository
+from recomendacoes_api.ports.repositories import (
+    DestinationRepository,
+    TripRepository,
+    UserRepository,
+)
 from recomendacoes_api.ports.security import PasswordHasher, TokenService
 
 
@@ -147,3 +160,149 @@ class DeleteTripUseCase:
         _get_owned_trip(self._trip_repository, trip_id, user_id)
 
         self._trip_repository.delete(trip_id)
+
+
+def _get_destination(
+    destination_repository: DestinationRepository, trip_id: UUID, destination_id: UUID
+) -> Destination:
+    destination = destination_repository.find_by_id(destination_id)
+
+    if destination is None or destination.trip_id != trip_id:
+        raise DestinationNotFoundError(f"Destination {destination_id} not found")
+
+    return destination
+
+
+def _renumber(destination_repository: DestinationRepository, destinations: list[Destination]):
+    for index, destination in enumerate(destinations, start=FIRST_POSITION):
+        destination.move_to(index)
+
+    destination_repository.update_many(destinations)
+
+
+class AddDestinationUseCase:
+    def __init__(
+        self, trip_repository: TripRepository, destination_repository: DestinationRepository
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+
+    def execute(
+        self,
+        user_id: UUID,
+        trip_id: UUID,
+        name: str,
+        location: str,
+        category: DestinationCategory,
+        arrival_date: date,
+        departure_date: date,
+        photo_url: str | None = None,
+        description: str = "",
+    ) -> Destination:
+        _get_owned_trip(self._trip_repository, trip_id, user_id)
+
+        destination = Destination.create(
+            trip_id=trip_id,
+            name=name,
+            location=location,
+            category=category,
+            arrival_date=arrival_date,
+            departure_date=departure_date,
+            position=self._destination_repository.count_by_trip(trip_id) + FIRST_POSITION,
+            photo_url=photo_url,
+            description=description,
+        )
+
+        self._destination_repository.save(destination)
+
+        return destination
+
+
+class ListDestinationsUseCase:
+    def __init__(
+        self, trip_repository: TripRepository, destination_repository: DestinationRepository
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+
+    def execute(
+        self, user_id: UUID, trip_id: UUID, limit: int = DEFAULT_LIMIT, offset: int = 0
+    ) -> Page[Destination]:
+        _get_owned_trip(self._trip_repository, trip_id, user_id)
+
+        return Page(
+            items=self._destination_repository.list_by_trip(trip_id, limit, offset),
+            total=self._destination_repository.count_by_trip(trip_id),
+        )
+
+
+class UpdateDestinationUseCase:
+    def __init__(
+        self, trip_repository: TripRepository, destination_repository: DestinationRepository
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+
+    def execute(
+        self,
+        user_id: UUID,
+        trip_id: UUID,
+        destination_id: UUID,
+        name: str,
+        location: str,
+        category: DestinationCategory,
+        arrival_date: date,
+        departure_date: date,
+        photo_url: str | None = None,
+        description: str = "",
+    ) -> Destination:
+        _get_owned_trip(self._trip_repository, trip_id, user_id)
+
+        destination = _get_destination(self._destination_repository, trip_id, destination_id)
+
+        destination.update(
+            name, location, category, arrival_date, departure_date, photo_url, description
+        )
+
+        self._destination_repository.update(destination)
+
+        return destination
+
+
+class DeleteDestinationUseCase:
+    def __init__(
+        self, trip_repository: TripRepository, destination_repository: DestinationRepository
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+
+    def execute(self, user_id: UUID, trip_id: UUID, destination_id: UUID) -> None:
+        _get_owned_trip(self._trip_repository, trip_id, user_id)
+        _get_destination(self._destination_repository, trip_id, destination_id)
+
+        self._destination_repository.delete(destination_id)
+
+        remaining = self._destination_repository.list_by_trip(trip_id)
+
+        _renumber(self._destination_repository, remaining)
+
+
+class ReorderDestinationsUseCase:
+    def __init__(
+        self, trip_repository: TripRepository, destination_repository: DestinationRepository
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+
+    def execute(self, user_id: UUID, trip_id: UUID, destination_ids: list[UUID]) -> None:
+        _get_owned_trip(self._trip_repository, trip_id, user_id)
+
+        current = self._destination_repository.list_by_trip(trip_id)
+        by_id = {destination.id: destination for destination in current}
+
+        if len(destination_ids) != len(set(destination_ids)) or set(destination_ids) != set(by_id):
+            raise InvalidDestinationError(
+                "Destination order must list every destination of the trip exactly once"
+            )
+
+        _renumber(self._destination_repository, [by_id[item] for item in destination_ids])

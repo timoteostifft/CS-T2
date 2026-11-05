@@ -3,9 +3,11 @@ from fastapi.testclient import TestClient
 from recomendacoes_api.adapters.rest.dependencies import get_login_user_use_case
 from recomendacoes_api.app import app
 from recomendacoes_api.domain.exceptions import (
+    DestinationNotFoundError,
     DomainError,
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
+    InvalidDestinationError,
     InvalidTokenError,
     InvalidTripError,
     InvalidUserError,
@@ -97,6 +99,28 @@ def test_trip_access_denied_error_is_translated_to_403():
 
     assert response.status_code == 403
     assert response.json() == {"error": "forbidden", "code": 403, "message": "No access"}
+
+
+def test_invalid_destination_error_is_translated_to_400():
+    response = login_with(InvalidDestinationError("Destination name must not be empty"))
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": "bad_request",
+        "code": 400,
+        "message": "Destination name must not be empty",
+    }
+
+
+def test_destination_not_found_error_is_translated_to_404():
+    response = login_with(DestinationNotFoundError("Destination not found"))
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": "not_found",
+        "code": 404,
+        "message": "Destination not found",
+    }
 
 
 def test_unmapped_domain_error_falls_back_to_400():
