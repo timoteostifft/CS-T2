@@ -8,16 +8,19 @@ class MockTripRepository:
         self.trips: list[Trip] = list(trips or [])
 
     def list_by_user(self, user_id: UUID, limit: int | None = None, offset: int = 0) -> list[Trip]:
-        owned = [trip for trip in self.trips if trip.owner_id == user_id]
+        owned = [trip for trip in self.trips if trip.can_view(user_id)]
         end = None if limit is None else offset + limit
 
         return owned[offset:end]
 
     def count_by_user(self, user_id: UUID) -> int:
-        return len([trip for trip in self.trips if trip.owner_id == user_id])
+        return len([trip for trip in self.trips if trip.can_view(user_id)])
 
     def find_by_id(self, trip_id: UUID) -> Trip | None:
         return next((trip for trip in self.trips if trip.id == trip_id), None)
+
+    def find_by_invite_code(self, invite_code: str) -> Trip | None:
+        return next((trip for trip in self.trips if trip.invite_code == invite_code), None)
 
     def save(self, trip: Trip) -> None:
         self.trips.append(trip)

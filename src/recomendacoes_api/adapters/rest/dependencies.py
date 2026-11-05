@@ -4,8 +4,14 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from recomendacoes_api.adapters.database.postgres_activity_repository import (
+    PostgresActivityRepository,
+)
 from recomendacoes_api.adapters.database.postgres_destination_repository import (
     PostgresDestinationRepository,
+)
+from recomendacoes_api.adapters.database.postgres_scheduled_activity_repository import (
+    PostgresScheduledActivityRepository,
 )
 from recomendacoes_api.adapters.database.postgres_trip_repository import PostgresTripRepository
 from recomendacoes_api.adapters.database.postgres_user_repository import PostgresUserRepository
@@ -14,17 +20,29 @@ from recomendacoes_api.adapters.security.argon2_password_hasher import Argon2Pas
 from recomendacoes_api.adapters.security.jwt_token_service import JwtTokenService
 from recomendacoes_api.application.use_cases import (
     AddDestinationUseCase,
+    ChangeCollaboratorRoleUseCase,
+    CreateActivityUseCase,
     CreateTripUseCase,
     DeleteDestinationUseCase,
     DeleteTripUseCase,
+    GetActivityUseCase,
     GetCurrentUserUseCase,
     GetTripUseCase,
+    JoinTripUseCase,
+    ListActivitiesUseCase,
+    ListCollaboratorsUseCase,
     ListDestinationsUseCase,
+    ListScheduledActivitiesUseCase,
     ListTripsUseCase,
     LoginUserUseCase,
     RegisterUserUseCase,
+    RemoveCollaboratorUseCase,
+    RemoveScheduledActivityUseCase,
     ReorderDestinationsUseCase,
+    ScheduleActivityUseCase,
+    SetTripBudgetUseCase,
     UpdateDestinationUseCase,
+    UpdateScheduledActivityUseCase,
     UpdateTripUseCase,
 )
 from recomendacoes_api.domain.entities import User
@@ -46,6 +64,16 @@ def get_trip_repository() -> PostgresTripRepository:
 @lru_cache
 def get_destination_repository() -> PostgresDestinationRepository:
     return PostgresDestinationRepository(sessions)
+
+
+@lru_cache
+def get_activity_repository() -> PostgresActivityRepository:
+    return PostgresActivityRepository(sessions)
+
+
+@lru_cache
+def get_scheduled_activity_repository() -> PostgresScheduledActivityRepository:
+    return PostgresScheduledActivityRepository(sessions)
 
 
 @lru_cache
@@ -82,6 +110,10 @@ def get_get_trip_use_case() -> GetTripUseCase:
     return GetTripUseCase(get_trip_repository())
 
 
+def get_set_trip_budget_use_case() -> SetTripBudgetUseCase:
+    return SetTripBudgetUseCase(get_trip_repository())
+
+
 def get_update_trip_use_case() -> UpdateTripUseCase:
     return UpdateTripUseCase(get_trip_repository())
 
@@ -108,6 +140,69 @@ def get_delete_destination_use_case() -> DeleteDestinationUseCase:
 
 def get_reorder_destinations_use_case() -> ReorderDestinationsUseCase:
     return ReorderDestinationsUseCase(get_trip_repository(), get_destination_repository())
+
+
+def get_create_activity_use_case() -> CreateActivityUseCase:
+    return CreateActivityUseCase(get_activity_repository())
+
+
+def get_list_activities_use_case() -> ListActivitiesUseCase:
+    return ListActivitiesUseCase(get_activity_repository())
+
+
+def get_get_activity_use_case() -> GetActivityUseCase:
+    return GetActivityUseCase(get_activity_repository())
+
+
+def get_schedule_activity_use_case() -> ScheduleActivityUseCase:
+    return ScheduleActivityUseCase(
+        get_trip_repository(),
+        get_destination_repository(),
+        get_activity_repository(),
+        get_scheduled_activity_repository(),
+    )
+
+
+def get_list_scheduled_activities_use_case() -> ListScheduledActivitiesUseCase:
+    return ListScheduledActivitiesUseCase(
+        get_trip_repository(),
+        get_destination_repository(),
+        get_activity_repository(),
+        get_scheduled_activity_repository(),
+    )
+
+
+def get_update_scheduled_activity_use_case() -> UpdateScheduledActivityUseCase:
+    return UpdateScheduledActivityUseCase(
+        get_trip_repository(),
+        get_destination_repository(),
+        get_activity_repository(),
+        get_scheduled_activity_repository(),
+    )
+
+
+def get_remove_scheduled_activity_use_case() -> RemoveScheduledActivityUseCase:
+    return RemoveScheduledActivityUseCase(
+        get_trip_repository(),
+        get_destination_repository(),
+        get_scheduled_activity_repository(),
+    )
+
+
+def get_join_trip_use_case() -> JoinTripUseCase:
+    return JoinTripUseCase(get_trip_repository())
+
+
+def get_list_collaborators_use_case() -> ListCollaboratorsUseCase:
+    return ListCollaboratorsUseCase(get_trip_repository(), get_user_repository())
+
+
+def get_change_collaborator_role_use_case() -> ChangeCollaboratorRoleUseCase:
+    return ChangeCollaboratorRoleUseCase(get_trip_repository(), get_user_repository())
+
+
+def get_remove_collaborator_use_case() -> RemoveCollaboratorUseCase:
+    return RemoveCollaboratorUseCase(get_trip_repository())
 
 
 def get_current_user(

@@ -3,14 +3,20 @@ from fastapi.testclient import TestClient
 from recomendacoes_api.adapters.rest.dependencies import get_login_user_use_case
 from recomendacoes_api.app import app
 from recomendacoes_api.domain.exceptions import (
+    ActivityNotFoundError,
+    AlreadyCollaboratorError,
+    CollaboratorNotFoundError,
     DestinationNotFoundError,
     DomainError,
     EmailAlreadyRegisteredError,
+    InvalidActivityError,
     InvalidCredentialsError,
     InvalidDestinationError,
+    InvalidScheduledActivityError,
     InvalidTokenError,
     InvalidTripError,
     InvalidUserError,
+    ScheduledActivityNotFoundError,
     TripAccessDeniedError,
     TripNotFoundError,
 )
@@ -121,6 +127,48 @@ def test_destination_not_found_error_is_translated_to_404():
         "code": 404,
         "message": "Destination not found",
     }
+
+
+def test_invalid_activity_error_is_translated_to_400():
+    response = login_with(InvalidActivityError("boom"))
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "bad_request", "code": 400, "message": "boom"}
+
+
+def test_activity_not_found_error_is_translated_to_404():
+    response = login_with(ActivityNotFoundError("boom"))
+
+    assert response.status_code == 404
+    assert response.json() == {"error": "not_found", "code": 404, "message": "boom"}
+
+
+def test_invalid_scheduled_activity_error_is_translated_to_400():
+    response = login_with(InvalidScheduledActivityError("boom"))
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "bad_request", "code": 400, "message": "boom"}
+
+
+def test_scheduled_activity_not_found_error_is_translated_to_404():
+    response = login_with(ScheduledActivityNotFoundError("boom"))
+
+    assert response.status_code == 404
+    assert response.json() == {"error": "not_found", "code": 404, "message": "boom"}
+
+
+def test_already_collaborator_error_is_translated_to_409():
+    response = login_with(AlreadyCollaboratorError("boom"))
+
+    assert response.status_code == 409
+    assert response.json() == {"error": "conflict", "code": 409, "message": "boom"}
+
+
+def test_collaborator_not_found_error_is_translated_to_404():
+    response = login_with(CollaboratorNotFoundError("boom"))
+
+    assert response.status_code == 404
+    assert response.json() == {"error": "not_found", "code": 404, "message": "boom"}
 
 
 def test_unmapped_domain_error_falls_back_to_400():

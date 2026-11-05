@@ -1,15 +1,22 @@
 from collections.abc import Callable
-from datetime import date
+from datetime import date, datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, NaiveDatetime
 
 from recomendacoes_api.domain.entities import (
     MIN_PASSWORD_LENGTH,
+    Activity,
+    ActivityCategory,
+    ActivityStatus,
+    CollaboratorDetails,
+    CollaboratorRole,
     Destination,
     DestinationCategory,
+    ScheduledActivityDetails,
     Trip,
+    TripRole,
     User,
 )
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
@@ -66,23 +73,57 @@ class TripRequest(BaseModel):
     end_date: date
 
 
+class BudgetRequest(BaseModel):
+    amount: float = Field(ge=0)
+
+
+class JoinTripRequest(BaseModel):
+    code: str = Field(min_length=1)
+
+
+class CollaboratorRoleRequest(BaseModel):
+    role: CollaboratorRole
+
+
+class CollaboratorResponse(BaseModel):
+    user_id: UUID
+    name: str
+    email: str
+    role: CollaboratorRole
+
+    @staticmethod
+    def from_entity(details: CollaboratorDetails) -> "CollaboratorResponse":
+        return CollaboratorResponse(
+            user_id=details.user.id,
+            name=details.user.name,
+            email=details.user.email,
+            role=details.collaborator.role,
+        )
+
+
 class TripResponse(BaseModel):
     id: UUID
     name: str
     description: str
     start_date: date
     end_date: date
+    budget: float | None
     owner_id: UUID
+    role: TripRole
+    invite_code: str | None
 
     @staticmethod
-    def from_entity(trip: Trip) -> "TripResponse":
+    def from_entity(trip: Trip, user_id: UUID) -> "TripResponse":
         return TripResponse(
             id=trip.id,
             name=trip.name,
             description=trip.description,
             start_date=trip.start_date,
             end_date=trip.end_date,
+            budget=trip.budget,
             owner_id=trip.owner_id,
+            role=trip.role_of(user_id),
+            invite_code=trip.invite_code if trip.is_owned_by(user_id) else None,
         )
 
 
@@ -125,6 +166,67 @@ class DestinationResponse(BaseModel):
             departure_date=destination.departure_date,
             photo_url=destination.photo_url,
             description=destination.description,
+        )
+
+
+class ActivityRequest(BaseModel):
+    name: str = Field(min_length=1)
+    category: ActivityCategory
+    location: str = Field(min_length=1)
+    description: str = ""
+    photo_url: str | None = None
+
+
+class ActivityResponse(BaseModel):
+    id: UUID
+    name: str
+    category: ActivityCategory
+    location: str
+    description: str
+    photo_url: str | None
+
+    @staticmethod
+    def from_entity(activity: Activity) -> "ActivityResponse":
+        return ActivityResponse(
+            id=activity.id,
+            name=activity.name,
+            category=activity.category,
+            location=activity.location,
+            description=activity.description,
+            photo_url=activity.photo_url,
+        )
+
+
+class ScheduledActivityDetailsRequest(BaseModel):
+    starts_at: NaiveDatetime | None = None
+    duration_minutes: int | None = Field(default=None, gt=0)
+    planned_cost: float = Field(default=0.0, ge=0)
+    status: ActivityStatus = ActivityStatus.PENDING
+
+
+class ScheduleActivityRequest(ScheduledActivityDetailsRequest):
+    activity_id: UUID
+
+
+class ScheduledActivityResponse(BaseModel):
+    id: UUID
+    destination_id: UUID
+    starts_at: datetime | None
+    duration_minutes: int | None
+    planned_cost: float
+    status: ActivityStatus
+    activity: ActivityResponse
+
+    @staticmethod
+    def from_entity(details: ScheduledActivityDetails) -> "ScheduledActivityResponse":
+        return ScheduledActivityResponse(
+            id=details.scheduled.id,
+            destination_id=details.scheduled.destination_id,
+            starts_at=details.scheduled.starts_at,
+            duration_minutes=details.scheduled.duration_minutes,
+            planned_cost=details.scheduled.planned_cost,
+            status=details.scheduled.status,
+            activity=ActivityResponse.from_entity(details.activity),
         )
 
 

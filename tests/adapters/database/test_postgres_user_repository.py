@@ -32,3 +32,13 @@ def test_find_by_email_returns_the_matching_user(session_factory):
 
 def test_find_by_email_returns_none_when_missing(session_factory):
     assert PostgresUserRepository(session_factory).find_by_email("none@example.com") is None
+
+
+def test_list_by_ids_returns_only_the_requested_users(session_factory):
+    repository = PostgresUserRepository(session_factory)
+    wanted, ignored = make_user(), make_user("bia@example.com")
+    repository.save(wanted)
+    repository.save(ignored)
+
+    assert repository.list_by_ids([wanted.id, uuid4()]) == [wanted]
+    assert repository.list_by_ids([]) == []

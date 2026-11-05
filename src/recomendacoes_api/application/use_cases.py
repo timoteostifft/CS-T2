@@ -1,27 +1,38 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from recomendacoes_api.domain.entities import (
     FIRST_POSITION,
     MIN_PASSWORD_LENGTH,
+    Activity,
+    ActivityCategory,
+    ActivityStatus,
+    CollaboratorDetails,
+    CollaboratorRole,
     Destination,
     DestinationCategory,
+    ScheduledActivity,
+    ScheduledActivityDetails,
     Trip,
     User,
 )
 from recomendacoes_api.domain.exceptions import (
+    ActivityNotFoundError,
     DestinationNotFoundError,
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
     InvalidDestinationError,
     InvalidTokenError,
     InvalidUserError,
+    ScheduledActivityNotFoundError,
     TripAccessDeniedError,
     TripNotFoundError,
 )
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, Page
 from recomendacoes_api.ports.repositories import (
+    ActivityRepository,
     DestinationRepository,
+    ScheduledActivityRepository,
     TripRepository,
     UserRepository,
 )
@@ -86,13 +97,31 @@ class GetCurrentUserUseCase:
         return user
 
 
-def _get_owned_trip(trip_repository: TripRepository, trip_id: UUID, user_id: UUID) -> Trip:
+def _get_viewable_trip(trip_repository: TripRepository, trip_id: UUID, user_id: UUID) -> Trip:
     trip = trip_repository.find_by_id(trip_id)
 
     if trip is None:
         raise TripNotFoundError(f"Trip {trip_id} not found")
-    if not trip.is_owned_by(user_id):
+    if not trip.can_view(user_id):
         raise TripAccessDeniedError(f"User has no access to trip {trip_id}")
+
+    return trip
+
+
+def _get_editable_trip(trip_repository: TripRepository, trip_id: UUID, user_id: UUID) -> Trip:
+    trip = _get_viewable_trip(trip_repository, trip_id, user_id)
+
+    if not trip.can_edit(user_id):
+        raise TripAccessDeniedError(f"User cannot edit trip {trip_id}")
+
+    return trip
+
+
+def _get_owned_trip(trip_repository: TripRepository, trip_id: UUID, user_id: UUID) -> Trip:
+    trip = _get_viewable_trip(trip_repository, trip_id, user_id)
+
+    if not trip.is_owned_by(user_id):
+        raise TripAccessDeniedError(f"Only the owner can manage trip {trip_id}")
 
     return trip
 
@@ -127,7 +156,21 @@ class GetTripUseCase:
         self._trip_repository = trip_repository
 
     def execute(self, user_id: UUID, trip_id: UUID) -> Trip:
-        return _get_owned_trip(self._trip_repository, trip_id, user_id)
+        return _get_viewable_trip(self._trip_repository, trip_id, user_id)
+
+
+class SetTripBudgetUseCase:
+    def __init__(self, trip_repository: TripRepository) -> None:
+        self._trip_repository = trip_repository
+
+    def execute(self, user_id: UUID, trip_id: UUID, amount: float) -> Trip:
+        trip = _get_editable_trip(self._trip_repository, trip_id, user_id)
+
+        trip.set_budget(amount)
+
+        self._trip_repository.update(trip)
+
+        return trip
 
 
 class UpdateTripUseCase:
@@ -199,7 +242,7 @@ class AddDestinationUseCase:
         photo_url: str | None = None,
         description: str = "",
     ) -> Destination:
-        _get_owned_trip(self._trip_repository, trip_id, user_id)
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
 
         destination = Destination.create(
             trip_id=trip_id,
@@ -228,7 +271,7 @@ class ListDestinationsUseCase:
     def execute(
         self, user_id: UUID, trip_id: UUID, limit: int = DEFAULT_LIMIT, offset: int = 0
     ) -> Page[Destination]:
-        _get_owned_trip(self._trip_repository, trip_id, user_id)
+        _get_viewable_trip(self._trip_repository, trip_id, user_id)
 
         return Page(
             items=self._destination_repository.list_by_trip(trip_id, limit, offset),
@@ -256,7 +299,7 @@ class UpdateDestinationUseCase:
         photo_url: str | None = None,
         description: str = "",
     ) -> Destination:
-        _get_owned_trip(self._trip_repository, trip_id, user_id)
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
 
         destination = _get_destination(self._destination_repository, trip_id, destination_id)
 
@@ -277,7 +320,7 @@ class DeleteDestinationUseCase:
         self._destination_repository = destination_repository
 
     def execute(self, user_id: UUID, trip_id: UUID, destination_id: UUID) -> None:
-        _get_owned_trip(self._trip_repository, trip_id, user_id)
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
         _get_destination(self._destination_repository, trip_id, destination_id)
 
         self._destination_repository.delete(destination_id)
@@ -295,7 +338,7 @@ class ReorderDestinationsUseCase:
         self._destination_repository = destination_repository
 
     def execute(self, user_id: UUID, trip_id: UUID, destination_ids: list[UUID]) -> None:
-        _get_owned_trip(self._trip_repository, trip_id, user_id)
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
 
         current = self._destination_repository.list_by_trip(trip_id)
         by_id = {destination.id: destination for destination in current}
@@ -306,3 +349,275 @@ class ReorderDestinationsUseCase:
             )
 
         _renumber(self._destination_repository, [by_id[item] for item in destination_ids])
+
+
+def _get_scheduled_activity(
+    scheduled_repository: ScheduledActivityRepository,
+    destination_id: UUID,
+    scheduled_id: UUID,
+) -> ScheduledActivity:
+    scheduled = scheduled_repository.find_by_id(scheduled_id)
+
+    if scheduled is None or scheduled.destination_id != destination_id:
+        raise ScheduledActivityNotFoundError(f"Scheduled activity {scheduled_id} not found")
+
+    return scheduled
+
+
+def _with_activities(
+    activity_repository: ActivityRepository, scheduled_items: list[ScheduledActivity]
+) -> list[ScheduledActivityDetails]:
+    activities = activity_repository.list_by_ids([item.activity_id for item in scheduled_items])
+    by_id = {activity.id: activity for activity in activities}
+
+    return [ScheduledActivityDetails(item, by_id[item.activity_id]) for item in scheduled_items]
+
+
+class CreateActivityUseCase:
+    def __init__(self, activity_repository: ActivityRepository) -> None:
+        self._activity_repository = activity_repository
+
+    def execute(
+        self,
+        name: str,
+        category: ActivityCategory,
+        location: str,
+        description: str = "",
+        photo_url: str | None = None,
+    ) -> Activity:
+        activity = Activity.create(name, category, location, description, photo_url)
+
+        self._activity_repository.save(activity)
+
+        return activity
+
+
+class ListActivitiesUseCase:
+    def __init__(self, activity_repository: ActivityRepository) -> None:
+        self._activity_repository = activity_repository
+
+    def execute(self, limit: int = DEFAULT_LIMIT, offset: int = 0) -> Page[Activity]:
+        return Page(
+            items=self._activity_repository.list_all(limit, offset),
+            total=self._activity_repository.count_all(),
+        )
+
+
+class GetActivityUseCase:
+    def __init__(self, activity_repository: ActivityRepository) -> None:
+        self._activity_repository = activity_repository
+
+    def execute(self, activity_id: UUID) -> Activity:
+        activity = self._activity_repository.find_by_id(activity_id)
+
+        if activity is None:
+            raise ActivityNotFoundError(f"Activity {activity_id} not found")
+
+        return activity
+
+
+class ScheduleActivityUseCase:
+    def __init__(
+        self,
+        trip_repository: TripRepository,
+        destination_repository: DestinationRepository,
+        activity_repository: ActivityRepository,
+        scheduled_repository: ScheduledActivityRepository,
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+        self._activity_repository = activity_repository
+        self._scheduled_repository = scheduled_repository
+
+    def execute(
+        self,
+        user_id: UUID,
+        trip_id: UUID,
+        destination_id: UUID,
+        activity_id: UUID,
+        starts_at: datetime | None = None,
+        duration_minutes: int | None = None,
+        planned_cost: float = 0.0,
+        status: ActivityStatus = ActivityStatus.PENDING,
+    ) -> ScheduledActivityDetails:
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
+        _get_destination(self._destination_repository, trip_id, destination_id)
+
+        activity = self._activity_repository.find_by_id(activity_id)
+
+        if activity is None:
+            raise ActivityNotFoundError(f"Activity {activity_id} not found")
+
+        scheduled = ScheduledActivity(
+            destination_id=destination_id,
+            activity_id=activity_id,
+            starts_at=starts_at,
+            duration_minutes=duration_minutes,
+            planned_cost=planned_cost,
+            status=status,
+        )
+
+        self._scheduled_repository.save(scheduled)
+
+        return ScheduledActivityDetails(scheduled, activity)
+
+
+class ListScheduledActivitiesUseCase:
+    def __init__(
+        self,
+        trip_repository: TripRepository,
+        destination_repository: DestinationRepository,
+        activity_repository: ActivityRepository,
+        scheduled_repository: ScheduledActivityRepository,
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+        self._activity_repository = activity_repository
+        self._scheduled_repository = scheduled_repository
+
+    def execute(
+        self,
+        user_id: UUID,
+        trip_id: UUID,
+        destination_id: UUID,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = 0,
+    ) -> Page[ScheduledActivityDetails]:
+        _get_viewable_trip(self._trip_repository, trip_id, user_id)
+        _get_destination(self._destination_repository, trip_id, destination_id)
+
+        scheduled_items = self._scheduled_repository.list_by_destination(
+            destination_id, limit, offset
+        )
+
+        return Page(
+            items=_with_activities(self._activity_repository, scheduled_items),
+            total=self._scheduled_repository.count_by_destination(destination_id),
+        )
+
+
+class UpdateScheduledActivityUseCase:
+    def __init__(
+        self,
+        trip_repository: TripRepository,
+        destination_repository: DestinationRepository,
+        activity_repository: ActivityRepository,
+        scheduled_repository: ScheduledActivityRepository,
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+        self._activity_repository = activity_repository
+        self._scheduled_repository = scheduled_repository
+
+    def execute(
+        self,
+        user_id: UUID,
+        trip_id: UUID,
+        destination_id: UUID,
+        scheduled_id: UUID,
+        starts_at: datetime | None,
+        duration_minutes: int | None,
+        planned_cost: float,
+        status: ActivityStatus,
+    ) -> ScheduledActivityDetails:
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
+        _get_destination(self._destination_repository, trip_id, destination_id)
+
+        scheduled = _get_scheduled_activity(
+            self._scheduled_repository, destination_id, scheduled_id
+        )
+
+        scheduled.update(starts_at, duration_minutes, planned_cost, status)
+
+        self._scheduled_repository.update(scheduled)
+
+        return _with_activities(self._activity_repository, [scheduled])[0]
+
+
+class RemoveScheduledActivityUseCase:
+    def __init__(
+        self,
+        trip_repository: TripRepository,
+        destination_repository: DestinationRepository,
+        scheduled_repository: ScheduledActivityRepository,
+    ) -> None:
+        self._trip_repository = trip_repository
+        self._destination_repository = destination_repository
+        self._scheduled_repository = scheduled_repository
+
+    def execute(
+        self, user_id: UUID, trip_id: UUID, destination_id: UUID, scheduled_id: UUID
+    ) -> None:
+        _get_editable_trip(self._trip_repository, trip_id, user_id)
+        _get_destination(self._destination_repository, trip_id, destination_id)
+        _get_scheduled_activity(self._scheduled_repository, destination_id, scheduled_id)
+
+        self._scheduled_repository.delete(scheduled_id)
+
+
+class JoinTripUseCase:
+    def __init__(self, trip_repository: TripRepository) -> None:
+        self._trip_repository = trip_repository
+
+    def execute(self, user_id: UUID, invite_code: str) -> Trip:
+        trip = self._trip_repository.find_by_invite_code(invite_code.strip().upper())
+
+        if trip is None:
+            raise TripNotFoundError("No trip matches this invite code")
+
+        trip.add_collaborator(user_id)
+
+        self._trip_repository.update(trip)
+
+        return trip
+
+
+class ListCollaboratorsUseCase:
+    def __init__(self, trip_repository: TripRepository, user_repository: UserRepository) -> None:
+        self._trip_repository = trip_repository
+        self._user_repository = user_repository
+
+    def execute(
+        self, user_id: UUID, trip_id: UUID, limit: int = DEFAULT_LIMIT, offset: int = 0
+    ) -> Page[CollaboratorDetails]:
+        trip = _get_viewable_trip(self._trip_repository, trip_id, user_id)
+
+        selected = trip.collaborators[offset : offset + limit]
+        users = self._user_repository.list_by_ids([item.user_id for item in selected])
+        by_id = {user.id: user for user in users}
+
+        return Page(
+            items=[CollaboratorDetails(item, by_id[item.user_id]) for item in selected],
+            total=len(trip.collaborators),
+        )
+
+
+class ChangeCollaboratorRoleUseCase:
+    def __init__(self, trip_repository: TripRepository, user_repository: UserRepository) -> None:
+        self._trip_repository = trip_repository
+        self._user_repository = user_repository
+
+    def execute(
+        self, user_id: UUID, trip_id: UUID, collaborator_user_id: UUID, role: CollaboratorRole
+    ) -> CollaboratorDetails:
+        trip = _get_owned_trip(self._trip_repository, trip_id, user_id)
+
+        collaborator = trip.change_collaborator_role(collaborator_user_id, role)
+
+        self._trip_repository.update(trip)
+
+        user = self._user_repository.list_by_ids([collaborator_user_id])[0]
+
+        return CollaboratorDetails(collaborator, user)
+
+
+class RemoveCollaboratorUseCase:
+    def __init__(self, trip_repository: TripRepository) -> None:
+        self._trip_repository = trip_repository
+
+    def execute(self, user_id: UUID, trip_id: UUID, collaborator_user_id: UUID) -> None:
+        trip = _get_owned_trip(self._trip_repository, trip_id, user_id)
+
+        trip.remove_collaborator(collaborator_user_id)
+
+        self._trip_repository.update(trip)

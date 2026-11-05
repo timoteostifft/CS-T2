@@ -40,6 +40,12 @@ class PostgresUserRepository:
 
             return _to_entity(row) if row else None
 
+    def list_by_ids(self, user_ids: list[UUID]) -> list[User]:
+        query = select(UserModel).where(UserModel.id.in_(user_ids))
+
+        with self._session_factory() as session:
+            return [_to_entity(row) for row in session.scalars(query).all()]
+
     def save(self, user: User) -> None:
         with self._session_factory() as session:
             session.add(

@@ -36,3 +36,27 @@ class InvalidDestinationError(DomainError):
 
 class DestinationNotFoundError(DomainError):
     pass
+
+
+class InvalidActivityError(DomainError):
+    pass
+
+
+class ActivityNotFoundError(DomainError):
+    pass
+
+
+class InvalidScheduledActivityError(DomainError):
+    pass
+
+
+class ScheduledActivityNotFoundError(DomainError):
+    pass
+
+
+class AlreadyCollaboratorError(DomainError):
+    pass
+
+
+class CollaboratorNotFoundError(DomainError):
+    pass

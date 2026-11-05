@@ -2,14 +2,20 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from recomendacoes_api.domain.exceptions import (
+    ActivityNotFoundError,
+    AlreadyCollaboratorError,
+    CollaboratorNotFoundError,
     DestinationNotFoundError,
     DomainError,
     EmailAlreadyRegisteredError,
+    InvalidActivityError,
     InvalidCredentialsError,
     InvalidDestinationError,
+    InvalidScheduledActivityError,
     InvalidTokenError,
     InvalidTripError,
     InvalidUserError,
+    ScheduledActivityNotFoundError,
     TripAccessDeniedError,
     TripNotFoundError,
 )
@@ -66,6 +72,38 @@ def destination_not_found_error_handler(
     return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
 
 
+def invalid_activity_error_handler(request: Request, exc: InvalidActivityError) -> JSONResponse:
+    return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
+
+
+def activity_not_found_error_handler(request: Request, exc: ActivityNotFoundError) -> JSONResponse:
+    return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
+
+
+def invalid_scheduled_error_handler(
+    request: Request, exc: InvalidScheduledActivityError
+) -> JSONResponse:
+    return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
+
+
+def scheduled_not_found_error_handler(
+    request: Request, exc: ScheduledActivityNotFoundError
+) -> JSONResponse:
+    return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
+
+
+def already_collaborator_error_handler(
+    request: Request, exc: AlreadyCollaboratorError
+) -> JSONResponse:
+    return error_response(status.HTTP_409_CONFLICT, "conflict", str(exc))
+
+
+def collaborator_not_found_error_handler(
+    request: Request, exc: CollaboratorNotFoundError
+) -> JSONResponse:
+    return error_response(status.HTTP_404_NOT_FOUND, "not_found", str(exc))
+
+
 def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return error_response(status.HTTP_400_BAD_REQUEST, "bad_request", str(exc))
 
@@ -80,4 +118,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(TripAccessDeniedError, trip_access_denied_error_handler)
     app.add_exception_handler(InvalidDestinationError, invalid_destination_error_handler)
     app.add_exception_handler(DestinationNotFoundError, destination_not_found_error_handler)
+    app.add_exception_handler(InvalidActivityError, invalid_activity_error_handler)
+    app.add_exception_handler(ActivityNotFoundError, activity_not_found_error_handler)
+    app.add_exception_handler(InvalidScheduledActivityError, invalid_scheduled_error_handler)
+    app.add_exception_handler(ScheduledActivityNotFoundError, scheduled_not_found_error_handler)
+    app.add_exception_handler(AlreadyCollaboratorError, already_collaborator_error_handler)
+    app.add_exception_handler(CollaboratorNotFoundError, collaborator_not_found_error_handler)
     app.add_exception_handler(DomainError, domain_error_handler)

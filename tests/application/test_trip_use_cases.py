@@ -8,6 +8,7 @@ from recomendacoes_api.application.use_cases import (
     DeleteTripUseCase,
     GetTripUseCase,
     ListTripsUseCase,
+    SetTripBudgetUseCase,
     UpdateTripUseCase,
 )
 from recomendacoes_api.domain.entities import Trip
@@ -136,3 +137,37 @@ def test_delete_raises_when_the_trip_belongs_to_someone_else():
 def test_delete_raises_when_the_trip_does_not_exist():
     with pytest.raises(TripNotFoundError):
         DeleteTripUseCase(MockTripRepository()).execute(uuid4(), uuid4())
+
+
+def test_set_budget_persists_the_amount():
+    owner_id = uuid4()
+    trip = make_trip(owner_id)
+    repository = MockTripRepository([trip])
+
+    updated = SetTripBudgetUseCase(repository).execute(owner_id, trip.id, 3000.0)
+
+    assert updated.budget == 3000.0
+    assert repository.find_by_id(trip.id).budget == 3000.0
+
+
+def test_set_budget_rejects_a_negative_amount_without_persisting():
+    owner_id = uuid4()
+    trip = make_trip(owner_id)
+    repository = MockTripRepository([trip])
+
+    with pytest.raises(InvalidTripError):
+        SetTripBudgetUseCase(repository).execute(owner_id, trip.id, -1.0)
+
+    assert repository.find_by_id(trip.id).budget is None
+
+
+def test_set_budget_raises_when_the_trip_belongs_to_someone_else():
+    trip = make_trip(uuid4())
+
+    with pytest.raises(TripAccessDeniedError):
+        SetTripBudgetUseCase(MockTripRepository([trip])).execute(uuid4(), trip.id, 10.0)
+
+
+def test_set_budget_raises_when_the_trip_does_not_exist():
+    with pytest.raises(TripNotFoundError):
+        SetTripBudgetUseCase(MockTripRepository()).execute(uuid4(), uuid4(), 10.0)

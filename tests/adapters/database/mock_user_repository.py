@@ -13,5 +13,8 @@ class MockUserRepository:
     def find_by_email(self, email: str) -> User | None:
         return next((user for user in self.users if user.email == email), None)
 
+    def list_by_ids(self, user_ids: list[UUID]) -> list[User]:
+        return [user for user in self.users if user.id in user_ids]
+
     def save(self, user: User) -> None:
         self.users.append(user)

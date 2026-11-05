@@ -3,8 +3,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from recomendacoes_api.adapters.database.postgres_activity_repository import (
+    ActivityModel,  # noqa: F401
+)
 from recomendacoes_api.adapters.database.postgres_destination_repository import (
     DestinationModel,  # noqa: F401
+)
+from recomendacoes_api.adapters.database.postgres_scheduled_activity_repository import (
+    ScheduledActivityModel,  # noqa: F401
 )
 from recomendacoes_api.adapters.database.postgres_trip_repository import TripModel  # noqa: F401
 from recomendacoes_api.adapters.database.postgres_user_repository import (
