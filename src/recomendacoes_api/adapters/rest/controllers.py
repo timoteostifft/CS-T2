@@ -16,6 +16,7 @@ from recomendacoes_api.adapters.rest.dependencies import (
 from recomendacoes_api.adapters.rest.schemas import (
     CityListRequest,
     CityResponse,
+    HealthResponse,
     PageResponse,
     PaginationRequest,
     PlaceListRequest,
@@ -40,6 +41,7 @@ from recomendacoes_api.application.use_cases import (
 router = APIRouter(prefix="/places", tags=["places"])
 states_router = APIRouter(prefix="/states", tags=["locations"])
 cities_router = APIRouter(prefix="/cities", tags=["locations"])
+health_router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("")
@@ -145,3 +147,8 @@ def list_cities(
     )
 
     return PageResponse[CityResponse].from_page(page, CityResponse.from_entity)
+
+
+@health_router.get("")
+def health() -> HealthResponse:
+    return HealthResponse()

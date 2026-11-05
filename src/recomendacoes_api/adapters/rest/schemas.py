@@ -108,6 +108,10 @@ class ReportResponse(BaseModel):
         return ReportResponse(id=report.id, place_id=report.place_id, created_at=report.created_at)
 
 
+class HealthResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+
+
 class StateResponse(BaseModel):
     code: str
     name: str
