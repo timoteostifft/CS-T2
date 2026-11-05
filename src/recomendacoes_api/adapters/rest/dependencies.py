@@ -10,6 +10,7 @@ from recomendacoes_api.adapters.database.postgres_activity_repository import (
 from recomendacoes_api.adapters.database.postgres_destination_repository import (
     PostgresDestinationRepository,
 )
+from recomendacoes_api.adapters.database.postgres_review_repository import PostgresReviewRepository
 from recomendacoes_api.adapters.database.postgres_scheduled_activity_repository import (
     PostgresScheduledActivityRepository,
 )
@@ -32,6 +33,7 @@ from recomendacoes_api.application.use_cases import (
     ListActivitiesUseCase,
     ListCollaboratorsUseCase,
     ListDestinationsUseCase,
+    ListReviewsUseCase,
     ListScheduledActivitiesUseCase,
     ListTripsUseCase,
     LoginUserUseCase,
@@ -41,6 +43,7 @@ from recomendacoes_api.application.use_cases import (
     ReorderDestinationsUseCase,
     ScheduleActivityUseCase,
     SetTripBudgetUseCase,
+    SubmitReviewUseCase,
     UpdateDestinationUseCase,
     UpdateScheduledActivityUseCase,
     UpdateTripUseCase,
@@ -74,6 +77,11 @@ def get_activity_repository() -> PostgresActivityRepository:
 @lru_cache
 def get_scheduled_activity_repository() -> PostgresScheduledActivityRepository:
     return PostgresScheduledActivityRepository(sessions)
+
+
+@lru_cache
+def get_review_repository() -> PostgresReviewRepository:
+    return PostgresReviewRepository(sessions)
 
 
 @lru_cache
@@ -203,6 +211,16 @@ def get_change_collaborator_role_use_case() -> ChangeCollaboratorRoleUseCase:
 
 def get_remove_collaborator_use_case() -> RemoveCollaboratorUseCase:
     return RemoveCollaboratorUseCase(get_trip_repository())
+
+
+def get_submit_review_use_case() -> SubmitReviewUseCase:
+    return SubmitReviewUseCase(get_activity_repository(), get_review_repository())
+
+
+def get_list_reviews_use_case() -> ListReviewsUseCase:
+    return ListReviewsUseCase(
+        get_activity_repository(), get_review_repository(), get_user_repository()
+    )
 
 
 def get_current_user(

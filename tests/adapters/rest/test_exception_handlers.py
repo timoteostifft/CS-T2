@@ -12,6 +12,7 @@ from recomendacoes_api.domain.exceptions import (
     InvalidActivityError,
     InvalidCredentialsError,
     InvalidDestinationError,
+    InvalidReviewError,
     InvalidScheduledActivityError,
     InvalidTokenError,
     InvalidTripError,
@@ -169,6 +170,13 @@ def test_collaborator_not_found_error_is_translated_to_404():
 
     assert response.status_code == 404
     assert response.json() == {"error": "not_found", "code": 404, "message": "boom"}
+
+
+def test_invalid_review_error_is_translated_to_400():
+    response = login_with(InvalidReviewError("boom"))
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "bad_request", "code": 400, "message": "boom"}
 
 
 def test_unmapped_domain_error_falls_back_to_400():

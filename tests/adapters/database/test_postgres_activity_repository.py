@@ -54,3 +54,16 @@ def test_list_by_ids_returns_only_the_requested_activities(session_factory):
 
     assert repository.list_by_ids([wanted.id, uuid4()]) == [wanted]
     assert repository.list_by_ids([]) == []
+
+
+def test_update_persists_the_recalculated_rating(session_factory):
+    repository = PostgresActivityRepository(session_factory)
+    activity = make_activity()
+    repository.save(activity)
+
+    activity.recalculate_rating([5, 4])
+    repository.update(activity)
+
+    stored = repository.find_by_id(activity.id)
+
+    assert (stored.average_rating, stored.review_count) == (4.5, 2)

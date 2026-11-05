@@ -13,6 +13,7 @@ from recomendacoes_api.application.use_cases import (
     ListActivitiesUseCase,
     ListCollaboratorsUseCase,
     ListDestinationsUseCase,
+    ListReviewsUseCase,
     ListScheduledActivitiesUseCase,
     ListTripsUseCase,
     LoginUserUseCase,
@@ -22,6 +23,7 @@ from recomendacoes_api.application.use_cases import (
     ReorderDestinationsUseCase,
     ScheduleActivityUseCase,
     SetTripBudgetUseCase,
+    SubmitReviewUseCase,
     UpdateDestinationUseCase,
     UpdateScheduledActivityUseCase,
     UpdateTripUseCase,
@@ -37,6 +39,7 @@ def test_collaborators_are_cached_singletons():
         dependencies.get_scheduled_activity_repository()
         is dependencies.get_scheduled_activity_repository()
     )
+    assert dependencies.get_review_repository() is dependencies.get_review_repository()
     assert dependencies.get_password_hasher() is dependencies.get_password_hasher()
     assert dependencies.get_token_service() is dependencies.get_token_service()
 
@@ -75,3 +78,5 @@ def test_use_case_providers_build_the_expected_use_cases():
         dependencies.get_change_collaborator_role_use_case(), ChangeCollaboratorRoleUseCase
     )
     assert isinstance(dependencies.get_remove_collaborator_use_case(), RemoveCollaboratorUseCase)
+    assert isinstance(dependencies.get_submit_review_use_case(), SubmitReviewUseCase)
+    assert isinstance(dependencies.get_list_reviews_use_case(), ListReviewsUseCase)

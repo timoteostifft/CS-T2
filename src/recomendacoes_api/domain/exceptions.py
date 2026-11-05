@@ -60,3 +60,7 @@ class AlreadyCollaboratorError(DomainError):
 
 class CollaboratorNotFoundError(DomainError):
     pass
+
+
+class InvalidReviewError(DomainError):
+    pass

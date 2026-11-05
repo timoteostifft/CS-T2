@@ -1,6 +1,6 @@
 import secrets
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -9,6 +9,7 @@ from recomendacoes_api.domain.exceptions import (
     CollaboratorNotFoundError,
     InvalidActivityError,
     InvalidDestinationError,
+    InvalidReviewError,
     InvalidScheduledActivityError,
     InvalidTripError,
     InvalidUserError,
@@ -16,6 +17,8 @@ from recomendacoes_api.domain.exceptions import (
 
 MIN_PASSWORD_LENGTH = 8
 FIRST_POSITION = 1
+MIN_RATING = 1
+MAX_RATING = 5
 INVITE_CODE_BYTES = 4
 
 
@@ -283,6 +286,8 @@ class Activity:
     location: str
     description: str = ""
     photo_url: str | None = None
+    average_rating: float = 0.0
+    review_count: int = 0
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:
@@ -292,6 +297,12 @@ class Activity:
             raise InvalidActivityError("Activity location must not be empty")
         if self.photo_url is not None and not self.photo_url.strip():
             raise InvalidActivityError("Activity photo url must not be blank")
+        if not 0 <= self.average_rating <= MAX_RATING:
+            raise InvalidActivityError(
+                f"Activity average rating must be between 0 and {MAX_RATING}"
+            )
+        if self.review_count < 0:
+            raise InvalidActivityError("Activity review count must not be negative")
 
     @staticmethod
     def create(
@@ -308,6 +319,41 @@ class Activity:
             description=description.strip(),
             photo_url=photo_url.strip() if photo_url is not None else None,
         )
+
+    def recalculate_rating(self, ratings: list[int]) -> None:
+        self.review_count = len(ratings)
+        self.average_rating = round(sum(ratings) / len(ratings), 2) if ratings else 0.0
+
+
+@dataclass
+class Review:
+    activity_id: UUID
+    user_id: UUID
+    rating: int
+    comment: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    id: UUID = field(default_factory=uuid4)
+
+    def __post_init__(self) -> None:
+        if not MIN_RATING <= self.rating <= MAX_RATING:
+            raise InvalidReviewError(f"Review rating must be between {MIN_RATING} and {MAX_RATING}")
+
+    @staticmethod
+    def create(
+        activity_id: UUID, user_id: UUID, rating: int, comment: str | None = None
+    ) -> "Review":
+        return Review(
+            activity_id=activity_id,
+            user_id=user_id,
+            rating=rating,
+            comment=(comment.strip() or None) if comment is not None else None,
+        )
+
+    def update(self, rating: int, comment: str | None) -> None:
+        updated = Review.create(self.activity_id, self.user_id, rating, comment)
+
+        self.rating = updated.rating
+        self.comment = updated.comment
 
 
 @dataclass
@@ -345,6 +391,12 @@ class ScheduledActivity:
         self.duration_minutes = updated.duration_minutes
         self.planned_cost = updated.planned_cost
         self.status = updated.status
+
+
+@dataclass(frozen=True)
+class ReviewDetails:
+    review: Review
+    user: User
 
 
 @dataclass(frozen=True)

@@ -17,6 +17,7 @@ from recomendacoes_api.adapters.rest.dependencies import (
     get_list_activities_use_case,
     get_list_collaborators_use_case,
     get_list_destinations_use_case,
+    get_list_reviews_use_case,
     get_list_scheduled_activities_use_case,
     get_list_trips_use_case,
     get_login_user_use_case,
@@ -26,6 +27,7 @@ from recomendacoes_api.adapters.rest.dependencies import (
     get_reorder_destinations_use_case,
     get_schedule_activity_use_case,
     get_set_trip_budget_use_case,
+    get_submit_review_use_case,
     get_update_destination_use_case,
     get_update_scheduled_activity_use_case,
     get_update_trip_use_case,
@@ -45,6 +47,8 @@ from recomendacoes_api.adapters.rest.schemas import (
     PaginationRequest,
     RegisterRequest,
     ReorderDestinationsRequest,
+    ReviewRequest,
+    ReviewResponse,
     ScheduleActivityRequest,
     ScheduledActivityDetailsRequest,
     ScheduledActivityResponse,
@@ -66,6 +70,7 @@ from recomendacoes_api.application.use_cases import (
     ListActivitiesUseCase,
     ListCollaboratorsUseCase,
     ListDestinationsUseCase,
+    ListReviewsUseCase,
     ListScheduledActivitiesUseCase,
     ListTripsUseCase,
     LoginUserUseCase,
@@ -75,6 +80,7 @@ from recomendacoes_api.application.use_cases import (
     ReorderDestinationsUseCase,
     ScheduleActivityUseCase,
     SetTripBudgetUseCase,
+    SubmitReviewUseCase,
     UpdateDestinationUseCase,
     UpdateScheduledActivityUseCase,
     UpdateTripUseCase,
@@ -330,6 +336,29 @@ def get_activity(
     activity = use_case.execute(activity_id)
 
     return ActivityResponse.from_entity(activity)
+
+
+@activities_router.get("/{activity_id}/reviews")
+def list_reviews(
+    activity_id: UUID,
+    pagination: Annotated[PaginationRequest, Query()],
+    use_case: Annotated[ListReviewsUseCase, Depends(get_list_reviews_use_case)],
+) -> PageResponse[ReviewResponse]:
+    page = use_case.execute(activity_id, limit=pagination.limit, offset=pagination.offset)
+
+    return PageResponse[ReviewResponse].from_page(page, ReviewResponse.from_entity)
+
+
+@activities_router.put("/{activity_id}/review")
+def submit_review(
+    activity_id: UUID,
+    request: ReviewRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    use_case: Annotated[SubmitReviewUseCase, Depends(get_submit_review_use_case)],
+) -> ReviewResponse:
+    details = use_case.execute(user, activity_id, request.rating, request.comment)
+
+    return ReviewResponse.from_entity(details)
 
 
 @scheduled_activities_router.post("", status_code=status.HTTP_201_CREATED)

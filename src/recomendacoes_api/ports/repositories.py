@@ -1,7 +1,14 @@
 from typing import Protocol
 from uuid import UUID
 
-from recomendacoes_api.domain.entities import Activity, Destination, ScheduledActivity, Trip, User
+from recomendacoes_api.domain.entities import (
+    Activity,
+    Destination,
+    Review,
+    ScheduledActivity,
+    Trip,
+    User,
+)
 
 
 class UserRepository(Protocol):
@@ -61,6 +68,8 @@ class ActivityRepository(Protocol):
 
     def save(self, activity: Activity) -> None: ...
 
+    def update(self, activity: Activity) -> None: ...
+
 
 class ScheduledActivityRepository(Protocol):
     def list_by_destination(
@@ -76,3 +85,19 @@ class ScheduledActivityRepository(Protocol):
     def update(self, scheduled: ScheduledActivity) -> None: ...
 
     def delete(self, scheduled_id: UUID) -> None: ...
+
+
+class ReviewRepository(Protocol):
+    def find_by_activity_and_user(self, activity_id: UUID, user_id: UUID) -> Review | None: ...
+
+    def list_by_activity(
+        self, activity_id: UUID, limit: int | None = None, offset: int = 0
+    ) -> list[Review]: ...
+
+    def count_by_activity(self, activity_id: UUID) -> int: ...
+
+    def list_ratings_by_activity(self, activity_id: UUID) -> list[int]: ...
+
+    def save(self, review: Review) -> None: ...
+
+    def update(self, review: Review) -> None: ...

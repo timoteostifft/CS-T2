@@ -9,6 +9,9 @@ from recomendacoes_api.adapters.database.postgres_activity_repository import (
 from recomendacoes_api.adapters.database.postgres_destination_repository import (
     DestinationModel,  # noqa: F401
 )
+from recomendacoes_api.adapters.database.postgres_review_repository import (
+    ReviewModel,  # noqa: F401
+)
 from recomendacoes_api.adapters.database.postgres_scheduled_activity_repository import (
     ScheduledActivityModel,  # noqa: F401
 )

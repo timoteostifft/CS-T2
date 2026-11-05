@@ -24,3 +24,6 @@ class MockActivityRepository:
 
     def save(self, activity: Activity) -> None:
         self.activities.append(activity)
+
+    def update(self, activity: Activity) -> None:
+        self.activities = [activity if item.id == activity.id else item for item in self.activities]

@@ -11,6 +11,8 @@ from recomendacoes_api.domain.entities import (
     CollaboratorRole,
     Destination,
     DestinationCategory,
+    Review,
+    ReviewDetails,
     ScheduledActivity,
     ScheduledActivityDetails,
     Trip,
@@ -32,6 +34,7 @@ from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, Page
 from recomendacoes_api.ports.repositories import (
     ActivityRepository,
     DestinationRepository,
+    ReviewRepository,
     ScheduledActivityRepository,
     TripRepository,
     UserRepository,
@@ -621,3 +624,62 @@ class RemoveCollaboratorUseCase:
         trip.remove_collaborator(collaborator_user_id)
 
         self._trip_repository.update(trip)
+
+
+class SubmitReviewUseCase:
+    def __init__(
+        self, activity_repository: ActivityRepository, review_repository: ReviewRepository
+    ) -> None:
+        self._activity_repository = activity_repository
+        self._review_repository = review_repository
+
+    def execute(
+        self, user: User, activity_id: UUID, rating: int, comment: str | None = None
+    ) -> ReviewDetails:
+        review = Review.create(activity_id, user.id, rating, comment)
+        activity = self._activity_repository.find_by_id(activity_id)
+
+        if activity is None:
+            raise ActivityNotFoundError(f"Activity {activity_id} not found")
+
+        existing = self._review_repository.find_by_activity_and_user(activity_id, user.id)
+
+        if existing is None:
+            self._review_repository.save(review)
+        else:
+            existing.update(rating, comment)
+            self._review_repository.update(existing)
+            review = existing
+
+        activity.recalculate_rating(self._review_repository.list_ratings_by_activity(activity_id))
+
+        self._activity_repository.update(activity)
+
+        return ReviewDetails(review, user)
+
+
+class ListReviewsUseCase:
+    def __init__(
+        self,
+        activity_repository: ActivityRepository,
+        review_repository: ReviewRepository,
+        user_repository: UserRepository,
+    ) -> None:
+        self._activity_repository = activity_repository
+        self._review_repository = review_repository
+        self._user_repository = user_repository
+
+    def execute(
+        self, activity_id: UUID, limit: int = DEFAULT_LIMIT, offset: int = 0
+    ) -> Page[ReviewDetails]:
+        if self._activity_repository.find_by_id(activity_id) is None:
+            raise ActivityNotFoundError(f"Activity {activity_id} not found")
+
+        reviews = self._review_repository.list_by_activity(activity_id, limit, offset)
+        users = self._user_repository.list_by_ids([review.user_id for review in reviews])
+        by_id = {user.id: user for user in users}
+
+        return Page(
+            items=[ReviewDetails(review, by_id[review.user_id]) for review in reviews],
+            total=self._review_repository.count_by_activity(activity_id),
+        )

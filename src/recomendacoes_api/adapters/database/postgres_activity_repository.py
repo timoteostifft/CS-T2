@@ -1,6 +1,6 @@
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, func, select
+from sqlalchemy import Float, Integer, String, func, select
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
 
@@ -17,6 +17,8 @@ class ActivityModel(Base):
     location: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False, default="")
     photo_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    average_rating: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 def _to_entity(row: ActivityModel) -> Activity:
@@ -27,6 +29,21 @@ def _to_entity(row: ActivityModel) -> Activity:
         location=row.location,
         description=row.description,
         photo_url=row.photo_url,
+        average_rating=row.average_rating,
+        review_count=row.review_count,
+    )
+
+
+def _to_model(activity: Activity) -> ActivityModel:
+    return ActivityModel(
+        id=activity.id,
+        name=activity.name,
+        category=activity.category.value,
+        location=activity.location,
+        description=activity.description,
+        photo_url=activity.photo_url,
+        average_rating=activity.average_rating,
+        review_count=activity.review_count,
     )
 
 
@@ -61,14 +78,10 @@ class PostgresActivityRepository:
 
     def save(self, activity: Activity) -> None:
         with self._session_factory() as session:
-            session.add(
-                ActivityModel(
-                    id=activity.id,
-                    name=activity.name,
-                    category=activity.category.value,
-                    location=activity.location,
-                    description=activity.description,
-                    photo_url=activity.photo_url,
-                )
-            )
+            session.add(_to_model(activity))
+            session.commit()
+
+    def update(self, activity: Activity) -> None:
+        with self._session_factory() as session:
+            session.merge(_to_model(activity))
             session.commit()

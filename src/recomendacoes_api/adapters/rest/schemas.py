@@ -6,7 +6,9 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, NaiveDatetime
 
 from recomendacoes_api.domain.entities import (
+    MAX_RATING,
     MIN_PASSWORD_LENGTH,
+    MIN_RATING,
     Activity,
     ActivityCategory,
     ActivityStatus,
@@ -14,6 +16,7 @@ from recomendacoes_api.domain.entities import (
     CollaboratorRole,
     Destination,
     DestinationCategory,
+    ReviewDetails,
     ScheduledActivityDetails,
     Trip,
     TripRole,
@@ -184,6 +187,8 @@ class ActivityResponse(BaseModel):
     location: str
     description: str
     photo_url: str | None
+    average_rating: float
+    review_count: int
 
     @staticmethod
     def from_entity(activity: Activity) -> "ActivityResponse":
@@ -194,6 +199,35 @@ class ActivityResponse(BaseModel):
             location=activity.location,
             description=activity.description,
             photo_url=activity.photo_url,
+            average_rating=activity.average_rating,
+            review_count=activity.review_count,
+        )
+
+
+class ReviewRequest(BaseModel):
+    rating: int = Field(ge=MIN_RATING, le=MAX_RATING)
+    comment: str | None = None
+
+
+class ReviewResponse(BaseModel):
+    id: UUID
+    activity_id: UUID
+    user_id: UUID
+    user_name: str
+    rating: int
+    comment: str | None
+    created_at: datetime
+
+    @staticmethod
+    def from_entity(details: ReviewDetails) -> "ReviewResponse":
+        return ReviewResponse(
+            id=details.review.id,
+            activity_id=details.review.activity_id,
+            user_id=details.user.id,
+            user_name=details.user.name,
+            rating=details.review.rating,
+            comment=details.review.comment,
+            created_at=details.review.created_at,
         )
 
 
