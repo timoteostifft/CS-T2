@@ -12,7 +12,11 @@ def test_load_places_returns_at_least_thirty_unique_places():
 
 
 def test_load_places_is_deterministic():
-    assert [place.id for place in load_places()] == [place.id for place in load_places()]
+    first_ids = [place.id for place in load_places()]
+
+    second_ids = [place.id for place in load_places()]
+
+    assert first_ids == second_ids
 
 
 def test_seed_places_populates_places(session_factory):
