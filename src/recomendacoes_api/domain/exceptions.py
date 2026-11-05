@@ -16,3 +16,7 @@ class InvalidStateError(DomainError):
 
 class InvalidCityError(DomainError):
     pass
+
+
+class InvalidReviewError(DomainError):
+    pass

@@ -4,10 +4,13 @@ from uuid import UUID, uuid4
 from recomendacoes_api.domain.exceptions import (
     InvalidCityError,
     InvalidPlaceError,
+    InvalidReviewError,
     InvalidStateError,
 )
 
+MIN_RATING = 1
 MAX_RATING = 5
+PLACE_SORT_FIELDS = ("name", "rating", "cost")
 
 
 @dataclass
@@ -15,8 +18,10 @@ class Place:
     name: str
     category: str
     city_id: int
-    rating: float
     cost: float
+    average_rating: float = 0.0
+    review_count: int = 0
+    archived: bool = False
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:
@@ -26,14 +31,44 @@ class Place:
             raise InvalidPlaceError("Place category must not be empty")
         if self.city_id <= 0:
             raise InvalidPlaceError("Place city id must be positive")
-        if not 0 <= self.rating <= MAX_RATING:
-            raise InvalidPlaceError(f"Place rating must be between 0 and {MAX_RATING}")
         if self.cost < 0:
             raise InvalidPlaceError("Place cost must not be negative")
+        if not 0 <= self.average_rating <= MAX_RATING:
+            raise InvalidPlaceError(f"Place average rating must be between 0 and {MAX_RATING}")
+        if self.review_count < 0:
+            raise InvalidPlaceError("Place review count must not be negative")
 
     @staticmethod
-    def create(name: str, category: str, city_id: int, rating: float, cost: float) -> "Place":
-        return Place(name=name, category=category, city_id=city_id, rating=rating, cost=cost)
+    def create(name: str, category: str, city_id: int, cost: float) -> "Place":
+        return Place(name=name, category=category, city_id=city_id, cost=cost)
+
+    def recalculate_rating(self, ratings: list[int]) -> None:
+        self.review_count = len(ratings)
+        self.average_rating = sum(ratings) / len(ratings) if ratings else 0.0
+
+
+@dataclass
+class Review:
+    place_id: UUID
+    device_id: str
+    rating: int
+    comment: str | None = None
+    id: UUID = field(default_factory=uuid4)
+
+    def __post_init__(self) -> None:
+        if not self.device_id.strip():
+            raise InvalidReviewError("Review device id must not be empty")
+        if not MIN_RATING <= self.rating <= MAX_RATING:
+            raise InvalidReviewError(f"Review rating must be between {MIN_RATING} and {MAX_RATING}")
+
+    @staticmethod
+    def create(
+        place_id: UUID,
+        device_id: str,
+        rating: int,
+        comment: str | None = None,
+    ) -> "Review":
+        return Review(place_id=place_id, device_id=device_id, rating=rating, comment=comment)
 
 
 @dataclass(frozen=True)
