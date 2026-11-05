@@ -31,8 +31,8 @@ jobs:
         with:
           context: .
           load: true
+          no-cache: true
           tags: recomendacoes-api:scan
-          cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Scan image with Trivy
