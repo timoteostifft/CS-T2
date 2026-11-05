@@ -7,7 +7,10 @@ from recomendacoes_api.domain.exceptions import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
     InvalidTokenError,
+    InvalidTripError,
     InvalidUserError,
+    TripAccessDeniedError,
+    TripNotFoundError,
 )
 
 LOGIN_BODY = {"email": "ana@example.com", "password": "secret123"}
@@ -69,6 +72,31 @@ def test_invalid_token_error_is_translated_to_401():
 
     assert response.status_code == 401
     assert response.json() == {"error": "unauthorized", "code": 401, "message": "Token is invalid"}
+
+
+def test_invalid_trip_error_is_translated_to_400():
+    response = login_with(InvalidTripError("Trip name must not be empty"))
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "error": "bad_request",
+        "code": 400,
+        "message": "Trip name must not be empty",
+    }
+
+
+def test_trip_not_found_error_is_translated_to_404():
+    response = login_with(TripNotFoundError("Trip not found"))
+
+    assert response.status_code == 404
+    assert response.json() == {"error": "not_found", "code": 404, "message": "Trip not found"}
+
+
+def test_trip_access_denied_error_is_translated_to_403():
+    response = login_with(TripAccessDeniedError("No access"))
+
+    assert response.status_code == 403
+    assert response.json() == {"error": "forbidden", "code": 403, "message": "No access"}
 
 
 def test_unmapped_domain_error_falls_back_to_400():

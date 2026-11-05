@@ -16,3 +16,15 @@ class InvalidCredentialsError(DomainError):
 
 class InvalidTokenError(DomainError):
     pass
+
+
+class InvalidTripError(DomainError):
+    pass
+
+
+class TripNotFoundError(DomainError):
+    pass
+
+
+class TripAccessDeniedError(DomainError):
+    pass

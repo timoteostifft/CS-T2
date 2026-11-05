@@ -1,10 +1,11 @@
 from collections.abc import Callable
+from datetime import date
 from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
-from recomendacoes_api.domain.entities import MIN_PASSWORD_LENGTH, User
+from recomendacoes_api.domain.entities import MIN_PASSWORD_LENGTH, Trip, User
 from recomendacoes_api.domain.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
 
 
@@ -50,6 +51,33 @@ class TokenResponse(BaseModel):
     @staticmethod
     def from_token(token: str) -> "TokenResponse":
         return TokenResponse(access_token=token)
+
+
+class TripRequest(BaseModel):
+    name: str = Field(min_length=1)
+    description: str = ""
+    start_date: date
+    end_date: date
+
+
+class TripResponse(BaseModel):
+    id: UUID
+    name: str
+    description: str
+    start_date: date
+    end_date: date
+    owner_id: UUID
+
+    @staticmethod
+    def from_entity(trip: Trip) -> "TripResponse":
+        return TripResponse(
+            id=trip.id,
+            name=trip.name,
+            description=trip.description,
+            start_date=trip.start_date,
+            end_date=trip.end_date,
+            owner_id=trip.owner_id,
+        )
 
 
 class HealthResponse(BaseModel):
