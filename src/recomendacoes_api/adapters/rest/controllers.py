@@ -102,7 +102,7 @@ def list_reviews(
 def submit_review(
     place_id: UUID,
     request: ReviewRequest,
-    use_case: SubmitReviewUseCase = Depends(get_submit_review_use_case),
+    use_case: Annotated[SubmitReviewUseCase, Depends(get_submit_review_use_case)],
 ) -> ReviewResponse:
     review = use_case.execute(
         place_id=place_id,
@@ -118,8 +118,8 @@ def submit_review(
 def report_place(
     place_id: UUID,
     request: Request,
+    use_case: Annotated[ReportPlaceUseCase, Depends(get_report_place_use_case)],
     user_agent: Annotated[str, Header()] = "",
-    use_case: ReportPlaceUseCase = Depends(get_report_place_use_case),
 ) -> ReportResponse:
     ip_address = request.client.host if request.client else ""
     report = use_case.execute(place_id=place_id, ip_address=ip_address, user_agent=user_agent)

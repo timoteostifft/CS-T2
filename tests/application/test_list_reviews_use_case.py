@@ -51,10 +51,16 @@ def test_list_reviews_of_place_without_reviews_returns_empty_page():
 
 
 def test_list_reviews_of_missing_place_raises_not_found():
+    use_case = build_use_case()
+    place_id = uuid4()
+
     with pytest.raises(PlaceNotFoundError):
-        build_use_case().execute(uuid4())
+        use_case.execute(place_id)
 
 
 def test_list_reviews_of_archived_place_raises_not_found():
+    use_case = build_use_case()
+    place_id = ARCHIVED_PLACE.id
+
     with pytest.raises(PlaceNotFoundError):
-        build_use_case().execute(ARCHIVED_PLACE.id)
+        use_case.execute(place_id)

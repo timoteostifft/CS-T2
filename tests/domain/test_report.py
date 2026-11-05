@@ -24,7 +24,9 @@ def test_create_report_stamps_creation_time_in_utc():
 
 
 def test_hash_device_is_deterministic():
-    assert Report.hash_device("10.0.0.1", "Firefox") == Report.hash_device("10.0.0.1", "Firefox")
+    expected_hash = Report.hash_device("10.0.0.1", "Firefox")
+
+    assert Report.hash_device("10.0.0.1", "Firefox") == expected_hash
 
 
 def test_hash_device_differs_when_ip_or_user_agent_differs():
